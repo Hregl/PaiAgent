@@ -20,27 +20,52 @@ public class OutputNodeExecutor implements NodeExecutor {
             for (Map<String, String> output : outputs) {
                 String key = output.get("key");
                 String ref = output.get("ref");
-                if (ref != null && ref.contains(".")) {
-                    String[] parts = ref.split("\\.", 2);
-                    Object value = context.getNodeOutput(parts[0], parts[1]);
-                    result.put(key, value);
+                if (ref != null) {
+                    // Strip {{ }} wrapping if present (defensive)
+                    String cleanRef = stripTemplateBraces(ref);
+                    if (cleanRef.contains(".")) {
+                        String[] parts = cleanRef.split("\\.", 2);
+                        Object value = context.getNodeOutput(parts[0], parts[1]);
+                        result.put(key, value);
+                    }
                 }
             }
         }
 
-        // Process response template
+        // Process response template — resolve {{key}} against local result map
         String template = (String) nodeData.getOrDefault("responseTemplate", "{{output}}");
-        String response = context.resolveTemplate(template);
+        String response = resolveFromResultMap(template, result);
+        if (response.isEmpty() || response.equals(template)) {
+            // Fallback: try context-level template resolution
+            response = context.resolveTemplate(template);
+        }
         result.put("text", response);
 
-        // Pass through audio URL if available
-        if (result.containsKey("output") && result.get("output") instanceof String) {
-            String outputVal = (String) result.get("output");
-            if (outputVal.endsWith(".mp3") || outputVal.endsWith(".wav") || outputVal.startsWith("/files/")) {
-                result.put("audioUrl", outputVal);
-            }
-        }
+        return result;
+    }
 
+    /**
+     * Strip {{ and }} wrapping from a reference string.
+     */
+    private String stripTemplateBraces(String ref) {
+        String clean = ref.trim();
+        if (clean.startsWith("{{") && clean.endsWith("}}")) {
+            clean = clean.substring(2, clean.length() - 2).trim();
+        }
+        return clean;
+    }
+
+    /**
+     * Replace {{key}} placeholders with values from the result map.
+     */
+    private String resolveFromResultMap(String template, Map<String, Object> values) {
+        if (template == null) return "";
+        String result = template;
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            String placeholder = "{{" + entry.getKey() + "}}";
+            String value = entry.getValue() != null ? entry.getValue().toString() : "";
+            result = result.replace(placeholder, value);
+        }
         return result;
     }
 }

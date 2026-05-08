@@ -22,14 +22,17 @@ public class TTSNodeExecutor implements NodeExecutor {
         String inputRef = (String) nodeData.getOrDefault("inputRef", "");
         String voiceId = (String) nodeData.getOrDefault("voiceId", "zhiyan");
 
+        // Strip {{ }} wrapping if present (defensive)
+        String cleanRef = stripTemplateBraces(inputRef);
+
         // Resolve input text from reference
         String inputText;
-        if (inputRef.contains(".")) {
-            String[] parts = inputRef.split("\\.", 2);
+        if (cleanRef.contains(".")) {
+            String[] parts = cleanRef.split("\\.", 2);
             Object value = context.getNodeOutput(parts[0], parts[1]);
             inputText = value != null ? value.toString() : "";
         } else {
-            inputText = context.resolveTemplate("{{" + inputRef + "}}");
+            inputText = context.resolveTemplate("{{" + cleanRef + "}}");
         }
 
         if (inputText.isEmpty()) {
@@ -43,5 +46,16 @@ public class TTSNodeExecutor implements NodeExecutor {
         output.put("audioUrl", audioUrl);
         output.put("inputText", inputText);
         return output;
+    }
+
+    /**
+     * Strip {{ and }} wrapping from a reference string.
+     */
+    private String stripTemplateBraces(String ref) {
+        String clean = ref.trim();
+        if (clean.startsWith("{{") && clean.endsWith("}}")) {
+            clean = clean.substring(2, clean.length() - 2).trim();
+        }
+        return clean;
     }
 }

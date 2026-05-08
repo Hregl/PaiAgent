@@ -56,7 +56,7 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
       label: 'DeepSeek',
       provider: 'deepseek' as LLMProvider,
       model: '',
-      prompt: '基于以下内容生成一段播客脚本，要求口语化、有吸引力：\n\n{{input.output}}',
+      prompt: `基于以下内容生成一段播客脚本，要求口语化、有吸引力：\n\n{{${inputId}.output}}`,
       temperature: 0.7,
       maxTokens: 2048,
     },
@@ -69,7 +69,7 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
     data: {
       label: '超拟人音频合成',
       voiceId: 'zhiyan',
-      inputRef: `{{${llmId}.output}}`,
+      inputRef: `${llmId}.output`,
     },
   };
 
@@ -80,8 +80,8 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
     data: {
       label: 'Output',
       outputs: [
-        { key: 'text', ref: `{{${llmId}.output}}` },
-        { key: 'audioUrl', ref: `{{${ttsId}.audioUrl}}` },
+        { key: 'text', ref: `${llmId}.output` },
+        { key: 'audioUrl', ref: `${ttsId}.audioUrl` },
       ],
       responseTemplate: '### 播客脚本\n\n{{text}}\n\n### 音频\n\n{{audioUrl}}',
     },

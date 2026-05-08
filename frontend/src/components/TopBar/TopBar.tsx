@@ -1,4 +1,4 @@
-import { Input, Button, Space } from 'antd';
+import { Input, Button, Space, Modal, Spin, Card } from 'antd';
 import {
   PlusOutlined,
   FolderOpenOutlined,
@@ -6,14 +6,17 @@ import {
   BugOutlined,
   UserOutlined,
   LogoutOutlined,
+  CaretRightOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { useAuthStore } from '../../store/authStore';
 import { useDebugStore } from '../../store/debugStore';
 import { workflowApi } from '../../api/workflow';
-import { message, Modal } from 'antd';
+import { executionApi } from '../../api/execution';
+import { message } from 'antd';
 import { useState } from 'react';
-import { Workflow } from '../../types/workflow';
+import { Workflow, ExecutionResult } from '../../types/workflow';
 
 export default function TopBar() {
   const { workflowName, setWorkflowName, workflowId, setWorkflowId, nodes, edges, resetWorkflow, setNodes, setEdges } =
@@ -22,6 +25,13 @@ export default function TopBar() {
   const { openDrawer } = useDebugStore();
   const [loadModalOpen, setLoadModalOpen] = useState(false);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+
+  // Execute modal state
+  const [executeModalOpen, setExecuteModalOpen] = useState(false);
+  const [executeInput, setExecuteInput] = useState('');
+  const [executeResult, setExecuteResult] = useState<ExecutionResult | null>(null);
+  const [executeLoading, setExecuteLoading] = useState(false);
+  const [executeError, setExecuteError] = useState<string | null>(null);
 
   const handleNew = () => {
     resetWorkflow();
@@ -66,6 +76,29 @@ export default function TopBar() {
     message.success(`Loaded: ${wf.name}`);
   };
 
+  const handleExecute = async () => {
+    if (!workflowId || !executeInput.trim()) return;
+    setExecuteLoading(true);
+    setExecuteError(null);
+    setExecuteResult(null);
+    try {
+      const res = await executionApi.execute(workflowId, executeInput);
+      setExecuteResult(res.data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Execution failed';
+      setExecuteError(msg);
+    } finally {
+      setExecuteLoading(false);
+    }
+  };
+
+  const openExecuteModal = () => {
+    setExecuteInput('');
+    setExecuteResult(null);
+    setExecuteError(null);
+    setExecuteModalOpen(true);
+  };
+
   return (
     <div className="top-bar">
       <div className="top-bar-left">
@@ -88,6 +121,15 @@ export default function TopBar() {
           </Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
             Save
+          </Button>
+          <Button
+            type="primary"
+            icon={<CaretRightOutlined />}
+            onClick={openExecuteModal}
+            disabled={!workflowId}
+            style={{ background: '#52c41a', borderColor: '#52c41a' }}
+          >
+            Run
           </Button>
           <Button
             type="primary"
@@ -136,6 +178,78 @@ export default function TopBar() {
                 <div style={{ fontSize: 12, color: '#999' }}>{wf.updatedAt}</div>
               </div>
             ))}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title="Run Workflow"
+        open={executeModalOpen}
+        onCancel={() => setExecuteModalOpen(false)}
+        footer={null}
+        width={520}
+      >
+        <Input.TextArea
+          value={executeInput}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setExecuteInput(e.target.value)}
+          placeholder="Enter input text to send to the workflow..."
+          rows={4}
+          style={{ marginBottom: 12 }}
+          disabled={executeLoading}
+        />
+        <Button
+          type="primary"
+          icon={<CaretRightOutlined />}
+          onClick={handleExecute}
+          loading={executeLoading}
+          disabled={!workflowId || !executeInput.trim()}
+          block
+          style={{ background: '#52c41a', borderColor: '#52c41a' }}
+        >
+          Execute
+        </Button>
+
+        {executeLoading && (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 12, color: '#999' }}>Executing workflow...</div>
+          </div>
+        )}
+
+        {executeError && (
+          <div style={{ marginTop: 12, padding: 12, background: '#fff2f0', borderRadius: 8, color: '#ff4d4f' }}>
+            {executeError}
+          </div>
+        )}
+
+        {executeResult && (
+          <div style={{ marginTop: 16 }}>
+            <Card size="small" title="Result" style={{ marginBottom: 12 }}>
+              <span style={{ color: executeResult.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
+                {executeResult.status}
+              </span>
+              <span style={{ marginLeft: 12, color: '#999' }}>{executeResult.durationMs}ms</span>
+            </Card>
+
+            {executeResult.output?.text && (
+              <Card size="small" title="Text Output" style={{ marginBottom: 12 }}>
+                <p style={{ whiteSpace: 'pre-wrap', maxHeight: 300, overflowY: 'auto' }}>
+                  {executeResult.output.text}
+                </p>
+              </Card>
+            )}
+
+            {executeResult.output?.audioUrl && (
+              <Card size="small" title="Audio" style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <PlayCircleOutlined style={{ fontSize: 20, color: '#667eea' }} />
+                  <span>AI Podcast Audio</span>
+                </div>
+                <audio controls style={{ width: '100%' }} src={executeResult.output.audioUrl}>
+                  Your browser does not support audio playback.
+                </audio>
+              </Card>
+            )}
           </div>
         )}
       </Modal>
