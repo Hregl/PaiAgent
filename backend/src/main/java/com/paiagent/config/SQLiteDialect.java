@@ -3,37 +3,28 @@ package com.paiagent.config;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.identity.IdentityColumnSupport;
 import org.hibernate.dialect.identity.IdentityColumnSupportImpl;
-
-import java.sql.Types;
+import org.hibernate.type.SqlTypes;
 
 /**
- * SQLite dialect for Hibernate 5.x (Spring Boot 2.7.x).
+ * SQLite dialect for Hibernate 6.x (Spring Boot 3.4.x).
+ * Based on the official Hibernate community dialect.
  */
 public class SQLiteDialect extends Dialect {
 
     public SQLiteDialect() {
-        registerColumnType(Types.BIT, "integer");
-        registerColumnType(Types.TINYINT, "tinyint");
-        registerColumnType(Types.SMALLINT, "smallint");
-        registerColumnType(Types.INTEGER, "integer");
-        registerColumnType(Types.BIGINT, "bigint");
-        registerColumnType(Types.FLOAT, "float");
-        registerColumnType(Types.REAL, "real");
-        registerColumnType(Types.DOUBLE, "double");
-        registerColumnType(Types.NUMERIC, "numeric");
-        registerColumnType(Types.DECIMAL, "decimal");
-        registerColumnType(Types.CHAR, "char");
-        registerColumnType(Types.VARCHAR, "varchar($l)");
-        registerColumnType(Types.LONGVARCHAR, "longvarchar");
-        registerColumnType(Types.DATE, "date");
-        registerColumnType(Types.TIME, "time");
-        registerColumnType(Types.TIMESTAMP, "timestamp");
-        registerColumnType(Types.BINARY, "blob");
-        registerColumnType(Types.VARBINARY, "blob");
-        registerColumnType(Types.LONGVARBINARY, "blob");
-        registerColumnType(Types.BLOB, "blob");
-        registerColumnType(Types.CLOB, "clob");
-        registerColumnType(Types.BOOLEAN, "boolean");
+        // No registerColumnType calls needed — columnType() override handles mappings
+    }
+
+    @Override
+    protected String columnType(int sqlTypeCode) {
+        return switch (sqlTypeCode) {
+            case SqlTypes.FLOAT, SqlTypes.REAL -> "float";
+            case SqlTypes.TIMESTAMP, SqlTypes.TIMESTAMP_WITH_TIMEZONE -> "timestamp";
+            case SqlTypes.TIME_WITH_TIMEZONE -> "time";
+            case SqlTypes.BINARY, SqlTypes.VARBINARY, SqlTypes.LONGVARBINARY -> "blob";
+            case SqlTypes.BLOB -> "blob";
+            default -> super.columnType(sqlTypeCode);
+        };
     }
 
     @Override
@@ -42,38 +33,8 @@ public class SQLiteDialect extends Dialect {
     }
 
     @Override
-    public boolean hasAlterTable() {
-        return false;
-    }
-
-    @Override
-    public boolean dropConstraints() {
-        return false;
-    }
-
-    @Override
-    public String getDropForeignKeyString() {
-        return "";
-    }
-
-    @Override
-    public String getAddForeignKeyConstraintString(String cn, String[] fk, String t, String[] pk, boolean rpk) {
-        return "";
-    }
-
-    @Override
-    public String getAddPrimaryKeyConstraintString(String constraintName) {
-        return "";
-    }
-
-    @Override
-    public boolean supportsLimit() {
+    public boolean supportsUnionAll() {
         return true;
-    }
-
-    @Override
-    public String getLimitString(String query, boolean hasOffset) {
-        return query + (hasOffset ? " limit ? offset ?" : " limit ?");
     }
 
     @Override
@@ -89,11 +50,6 @@ public class SQLiteDialect extends Dialect {
     @Override
     public String getCurrentTimestampSelectString() {
         return "select current_timestamp";
-    }
-
-    @Override
-    public boolean supportsUnionAll() {
-        return true;
     }
 
     public static class SQLiteIdentityColumnSupport extends IdentityColumnSupportImpl {

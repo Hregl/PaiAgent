@@ -1,7 +1,6 @@
 package com.paiagent.engine.executors;
 
-import com.paiagent.adapter.LLMAdapter;
-import com.paiagent.adapter.LLMAdapterFactory;
+import com.paiagent.adapter.SpringAiChatService;
 import com.paiagent.engine.ExecutionContext;
 import com.paiagent.engine.NodeExecutor;
 import org.springframework.stereotype.Component;
@@ -12,10 +11,10 @@ import java.util.Map;
 @Component
 public class LLMNodeExecutor implements NodeExecutor {
 
-    private final LLMAdapterFactory adapterFactory;
+    private final SpringAiChatService chatService;
 
-    public LLMNodeExecutor(LLMAdapterFactory adapterFactory) {
-        this.adapterFactory = adapterFactory;
+    public LLMNodeExecutor(SpringAiChatService chatService) {
+        this.chatService = chatService;
     }
 
     @Override
@@ -31,14 +30,13 @@ public class LLMNodeExecutor implements NodeExecutor {
         // Resolve template variables in prompt
         String resolvedPrompt = context.resolveTemplate(promptTemplate);
 
-        // Call LLM
-        LLMAdapter adapter = adapterFactory.getAdapter(provider);
+        // Call LLM via Spring AI
         Map<String, Object> config = new HashMap<>();
         config.put("model", model);
         config.put("temperature", temperature);
         config.put("maxTokens", maxTokens);
 
-        String response = adapter.chat(resolvedPrompt, config);
+        String response = chatService.chat(provider, resolvedPrompt, config);
 
         Map<String, Object> output = new HashMap<>();
         output.put("output", response);

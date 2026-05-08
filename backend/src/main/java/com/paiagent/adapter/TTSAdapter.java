@@ -1,14 +1,14 @@
 package com.paiagent.adapter;
 
-import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * TTS (Text-to-Speech) adapter for audio synthesis.
@@ -26,10 +26,7 @@ public class TTSAdapter {
     @Value("${storage.audio-path:./data/audio}")
     private String audioPath;
 
-    private final OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .build();
+    private final RestClient restClient = RestClient.builder().build();
 
     /**
      * Synthesize text to audio.
@@ -66,21 +63,17 @@ public class TTSAdapter {
                 voiceId
         );
 
-        Request request = new Request.Builder()
-                .url(baseUrl + "/synthesize")
-                .addHeader("Authorization", "Bearer " + apiKey)
-                .addHeader("Content-Type", "application/json")
-                .post(RequestBody.create(requestBody, MediaType.parse("application/json")))
-                .build();
+        byte[] audioBytes = restClient.post()
+                .uri(baseUrl + "/synthesize")
+                .header("Authorization", "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .body(byte[].class);
 
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new RuntimeException("TTS API error: " + response.code());
-            }
-            if (response.body() != null) {
-                try (FileOutputStream fos = new FileOutputStream(outputFile)) {
-                    fos.write(response.body().bytes());
-                }
+        if (audioBytes != null) {
+            try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                fos.write(audioBytes);
             }
         }
     }

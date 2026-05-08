@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.7.18</version>
+        <version>3.4.1</version>
         <relativePath/>
     </parent>
 
@@ -18,8 +18,10 @@
     <name>PaiAgent Backend</name>
 
     <properties>
-        <java.version>11</java.version>
-        <jjwt.version>0.11.5</jjwt.version>
+        <java.version>21</java.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <spring-ai.version>1.0.0-M5</spring-ai.version>
+        <langgraph4j.version>1.8.14</langgraph4j.version>
     </properties>
 
     <dependencies>
@@ -68,11 +70,17 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- OkHttp for API calls -->
+        <!-- Spring AI -->
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>4.12.0</version>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-openai-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- LangGraph4j -->
+        <dependency>
+            <groupId>org.bsc.langgraph4j</groupId>
+            <artifactId>langgraph4j-core</artifactId>
+            <version>${langgraph4j.version}</version>
         </dependency>
 
         <!-- Lombok -->
@@ -89,6 +97,18 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>

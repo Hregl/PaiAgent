@@ -12,13 +12,20 @@ spring:
     show-sql: false
   jackson:
     default-property-inclusion: non_null
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+
+# Workflow Engine Configuration
+engine:
+  type: ${ENGINE_TYPE:dag}  # dag or langgraph
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:paiagent-default-secret-key-change-in-production}
+  secret: ${JWT_SECRET:paiagent-jwt-secret-at-least-32-characters}
   expiration: 86400000  # 24 hours
 
-# LLM API Keys
+# LLM API Keys (used by SpringAiChatService)
 llm:
   deepseek:
     api-key: ${DEEPSEEK_API_KEY:}
