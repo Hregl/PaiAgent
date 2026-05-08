@@ -18,15 +18,26 @@ public class OutputNodeExecutor implements NodeExecutor {
         List<Map<String, String>> outputs = (List<Map<String, String>>) nodeData.get("outputs");
         if (outputs != null) {
             for (Map<String, String> output : outputs) {
-                String key = output.get("key");
-                String ref = output.get("ref");
-                if (ref != null) {
-                    // Strip {{ }} wrapping if present (defensive)
-                    String cleanRef = stripTemplateBraces(ref);
+                // Support both new format (paramName/paramType/value) and legacy format (key/ref)
+                String paramName = output.getOrDefault("paramName", output.get("key"));
+                String paramType = output.getOrDefault("paramType", "reference");
+                String value = output.getOrDefault("value", output.get("ref"));
+
+                if (paramName == null || value == null) continue;
+
+                if ("input".equals(paramType)) {
+                    // Static value — use directly
+                    result.put(paramName, value);
+                } else {
+                    // Reference — resolve from context
+                    String cleanRef = stripTemplateBraces(value);
                     if (cleanRef.contains(".")) {
                         String[] parts = cleanRef.split("\\.", 2);
-                        Object value = context.getNodeOutput(parts[0], parts[1]);
-                        result.put(key, value);
+                        Object resolvedValue = context.getNodeOutput(parts[0], parts[1]);
+                        result.put(paramName, resolvedValue);
+                    } else {
+                        // No dot in reference — treat as static value
+                        result.put(paramName, cleanRef);
                     }
                 }
             }

@@ -22,11 +22,20 @@ export interface TTSNodeData {
 export interface InputNodeData {
   label: string;
   variableName: string;
+  variableType: string;
+  description: string;
+  required: boolean;
+}
+
+export interface OutputParam {
+  paramName: string;
+  paramType: 'input' | 'reference';
+  value: string;
 }
 
 export interface OutputNodeData {
   label: string;
-  outputs: { key: string; ref: string }[];
+  outputs: OutputParam[];
   responseTemplate: string;
 }
 
@@ -44,7 +53,7 @@ export interface Workflow {
   id: string;
   name: string;
   userId: number;
-  definition: WorkflowDefinition;
+  definition: WorkflowDefinition | string;
   createdAt: string;
   updatedAt: string;
 }

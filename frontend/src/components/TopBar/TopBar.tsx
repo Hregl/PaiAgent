@@ -70,8 +70,10 @@ export default function TopBar() {
   const handleSelectWorkflow = async (wf: Workflow) => {
     setWorkflowId(wf.id);
     setWorkflowName(wf.name);
-    setNodes(wf.definition.nodes);
-    setEdges(wf.definition.edges);
+    const definition =
+      typeof wf.definition === 'string' ? JSON.parse(wf.definition) : wf.definition;
+    setNodes(definition.nodes);
+    setEdges(definition.edges);
     setLoadModalOpen(false);
     message.success(`Loaded: ${wf.name}`);
   };

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, DragEvent } from 'react';
+import React, { useCallback, useRef, DragEvent, useMemo } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -6,6 +6,7 @@ import ReactFlow, {
   ReactFlowInstance,
   NodeTypes,
   Node,
+  MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useWorkflowStore } from '../../store/workflowStore';
@@ -78,6 +79,15 @@ export default function WorkflowCanvas() {
     selectNode(null);
   }, [selectNode]);
 
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: 'smoothstep' as const,
+      animated: true,
+      markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color: '#999' },
+    }),
+    []
+  );
+
   return (
     <div ref={reactFlowWrapper} style={{ width: '100%', height: '100%' }}>
       <ReactFlow
@@ -93,7 +103,7 @@ export default function WorkflowCanvas() {
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
-        defaultEdgeOptions={{ type: 'smoothstep', animated: true }}
+        defaultEdgeOptions={defaultEdgeOptions}
       >
         <Background />
         <Controls />
@@ -121,11 +131,17 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
         inputRef: '',
       };
     case 'input':
-      return { label: 'Input', variableName: 'input' };
+      return {
+        label: 'Input',
+        variableName: 'user_input',
+        variableType: 'String',
+        description: '用户本轮的输入内容',
+        required: true,
+      };
     case 'output':
       return {
         label: 'Output',
-        outputs: [{ key: 'output', ref: '' }],
+        outputs: [{ paramName: 'output', paramType: 'reference' as const, value: '' }],
         responseTemplate: '{{output}}',
       };
     default:

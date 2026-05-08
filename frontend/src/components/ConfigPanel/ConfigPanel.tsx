@@ -1,5 +1,6 @@
 import { useWorkflowStore } from '../../store/workflowStore';
-import { Form, Input, Select, InputNumber, Button, Divider, message } from 'antd';
+import { Form, Input, Select, InputNumber, Button, Divider, message, Checkbox } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useEffect } from 'react';
 import { Node } from 'reactflow';
 import { CustomNodeData } from '../../types/workflow';
@@ -72,18 +73,117 @@ export default function ConfigPanel() {
         );
       case 'input':
         return (
-          <Form.Item label="Variable Name" name="variableName">
-            <Input placeholder="input" />
-          </Form.Item>
+          <>
+            <Form.Item label="Variable Name" name="variableName">
+              <Input placeholder="user_input" />
+            </Form.Item>
+            <Form.Item label="Variable Type" name="variableType">
+              <Input disabled value="String" />
+            </Form.Item>
+            <Form.Item label="Description" name="description">
+              <Input placeholder="用户本轮的输入内容" />
+            </Form.Item>
+            <Form.Item label="Required" name="required" valuePropName="checked">
+              <Checkbox />
+            </Form.Item>
+          </>
         );
       case 'output':
         return (
           <>
-            <Form.Item label="Output Reference" name={['outputs', 0, 'ref']}>
-              <Input placeholder="e.g. node_3.audioUrl" />
-            </Form.Item>
-            <Form.Item label="Response Template" name="responseTemplate">
-              <TextArea rows={3} placeholder="{{output}}" />
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              输出配置
+            </Divider>
+            <Form.List name="outputs">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name }) => (
+                    <div
+                      key={key}
+                      style={{
+                        marginBottom: 12,
+                        padding: 12,
+                        background: '#fafafa',
+                        borderRadius: 8,
+                        position: 'relative',
+                      }}
+                    >
+                      <Form.Item
+                        label="Parameter Name"
+                        name={[name, 'paramName']}
+                        rules={[{ required: true, message: 'Required' }]}
+                        style={{ marginBottom: 8 }}
+                      >
+                        <Input placeholder="e.g. text, audioUrl" />
+                      </Form.Item>
+                      <Form.Item
+                        label="Parameter Type"
+                        name={[name, 'paramType']}
+                        rules={[{ required: true }]}
+                        style={{ marginBottom: 8 }}
+                      >
+                        <Select>
+                          <Select.Option value="input">Input</Select.Option>
+                          <Select.Option value="reference">Reference</Select.Option>
+                        </Select>
+                      </Form.Item>
+                      <Form.Item
+                        noStyle
+                        shouldUpdate={(prev, cur) =>
+                          prev.outputs?.[name]?.paramType !== cur.outputs?.[name]?.paramType
+                        }
+                      >
+                        {({ getFieldValue }) => {
+                          const paramType = getFieldValue(['outputs', name, 'paramType']);
+                          const label = paramType === 'reference' ? 'Node Reference' : 'Value';
+                          const placeholder =
+                            paramType === 'reference'
+                              ? 'e.g. llm_2.output'
+                              : 'Manual input value';
+                          return (
+                            <Form.Item
+                              label={label}
+                              name={[name, 'value']}
+                              style={{ marginBottom: 0 }}
+                            >
+                              <Input placeholder={placeholder} />
+                            </Form.Item>
+                          );
+                        }}
+                      </Form.Item>
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        onClick={() => remove(name)}
+                        style={{ position: 'absolute', top: 4, right: 4 }}
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    type="dashed"
+                    onClick={() => add({ paramName: '', paramType: 'reference', value: '' })}
+                    block
+                    icon={<PlusOutlined />}
+                  >
+                    Add Output
+                  </Button>
+                </>
+              )}
+            </Form.List>
+
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999', marginTop: 16 }}>
+              回答内容配置
+            </Divider>
+            <Form.Item
+              name="responseTemplate"
+              extra="Usage: Use the {{paramName}} format to reference the above output configuration parameters."
+            >
+              <TextArea
+                rows={4}
+                placeholder={`### Answer\n\n{{text}}\n\n### Audio\n\n{{audioUrl}}`}
+              />
             </Form.Item>
           </>
         );
