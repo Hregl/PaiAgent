@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "shell",
+            "matcher": "\\.tsx?$",
+            "command": "cd frontend && npx eslint --fix $FILE",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

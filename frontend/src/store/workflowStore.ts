@@ -10,7 +10,7 @@ import {
   addEdge,
   Connection,
 } from 'reactflow';
-import { CustomNodeData } from '../types/workflow';
+import { CustomNodeData, LLMProvider } from '../types/workflow';
 
 interface WorkflowState {
   nodes: Node<CustomNodeData>[];
@@ -33,8 +33,70 @@ interface WorkflowState {
   resetWorkflow: () => void;
 }
 
-const initialNodes: Node<CustomNodeData>[] = [];
-const initialEdges: Edge[] = [];
+let nodeCounter = 0;
+
+function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
+  const inputId = `input_${++nodeCounter}`;
+  const llmId = `llm_${++nodeCounter}`;
+  const ttsId = `tts_${++nodeCounter}`;
+  const outputId = `output_${++nodeCounter}`;
+
+  const inputNode: Node<CustomNodeData> = {
+    id: inputId,
+    type: 'input',
+    position: { x: 80, y: 100 },
+    data: { label: 'Input', variableName: 'input' },
+  };
+
+  const llmNode: Node<CustomNodeData> = {
+    id: llmId,
+    type: 'llm',
+    position: { x: 340, y: 100 },
+    data: {
+      label: 'DeepSeek',
+      provider: 'deepseek' as LLMProvider,
+      model: '',
+      prompt: '基于以下内容生成一段播客脚本，要求口语化、有吸引力：\n\n{{input.output}}',
+      temperature: 0.7,
+      maxTokens: 2048,
+    },
+  };
+
+  const ttsNode: Node<CustomNodeData> = {
+    id: ttsId,
+    type: 'tts',
+    position: { x: 600, y: 100 },
+    data: {
+      label: '超拟人音频合成',
+      voiceId: 'zhiyan',
+      inputRef: `{{${llmId}.output}}`,
+    },
+  };
+
+  const outputNode: Node<CustomNodeData> = {
+    id: outputId,
+    type: 'output',
+    position: { x: 860, y: 100 },
+    data: {
+      label: 'Output',
+      outputs: [
+        { key: 'text', ref: `{{${llmId}.output}}` },
+        { key: 'audioUrl', ref: `{{${ttsId}.audioUrl}}` },
+      ],
+      responseTemplate: '### 播客脚本\n\n{{text}}\n\n### 音频\n\n{{audioUrl}}',
+    },
+  };
+
+  const edges: Edge[] = [
+    { id: `${inputId}->${llmId}`, source: inputId, target: llmId, type: 'smoothstep', animated: true },
+    { id: `${llmId}->${ttsId}`, source: llmId, target: ttsId, type: 'smoothstep', animated: true },
+    { id: `${ttsId}->${outputId}`, source: ttsId, target: outputId, type: 'smoothstep', animated: true },
+  ];
+
+  return [[inputNode, llmNode, ttsNode, outputNode], edges];
+}
+
+const [initialNodes, initialEdges] = createDefaultNodes();
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   nodes: initialNodes,
@@ -83,12 +145,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setWorkflowId: (id) => set({ workflowId: id }),
   setWorkflowName: (name) => set({ workflowName: name }),
 
-  resetWorkflow: () =>
+  resetWorkflow: () => {
+    const [nodes, edges] = createDefaultNodes();
     set({
-      nodes: [],
-      edges: [],
+      nodes,
+      edges,
       selectedNodeId: null,
       workflowId: null,
       workflowName: '',
-    }),
+    });
+  },
 }));

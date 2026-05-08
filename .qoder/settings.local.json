@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(ls -la C:/Users/lsx/Desktop/杂项/PaiAgent/frontend/.eslint* C:/Users/lsx/Desktop/杂项/PaiAgent/frontend/.prettier* C:/Users/lsx/Desktop/杂项/PaiAgent/backend/.editorconfig 2>/dev/null; echo \"---\"; find C:/Users/lsx/Desktop/杂项/PaiAgent -name \".eslint*\" -o -name \".prettier*\" -o -name \"tsconfig*.json\" -o -name \"*.editorconfig\" 2>/dev/null | head -20)",
+      "Bash(find C:/Users/lsx/Desktop/杂项/PaiAgent -path \"*/test/*\" -name \"*.java\" 2>/dev/null | head -10; echo \"---frontend tests---\"; find C:/Users/lsx/Desktop/杂项/PaiAgent/frontend -name \"*.test.*\" -o -name \"*.spec.*\" 2>/dev/null | head -10)",
+      "Bash(find C:/Users/lsx/Desktop/杂项/PaiAgent -name \"AGENTS.md\" -o -name \".cursorrules\" -o -name \"copilot-instructions.md\" -o -name \".windsurfrules\" -o -name \".clinerules\" 2>/dev/null | head -10; echo \"---.qoder/rules---\"; ls -la C:/Users/lsx/Desktop/杂项/PaiAgent/.qoder/rules 2>/dev/null; echo \"---.qoder/skills---\"; ls -la C:/Users/lsx/Desktop/杂项/PaiAgent/.qoder/skills 2>/dev/null)",
+      "Bash(git:*)",
+      "Bash(ls C:/Users/lsx/Desktop/杂项/PaiAgent/frontend/.eslint* 2>/dev/null || echo \"No eslint config found\")",
+      "Bash(find:*)",
+      "Bash(ls C:/Users/lsx/Desktop/杂项/PaiAgent/.github 2>/dev/null || echo \"No .github directory\")",
+      "Bash(mkdir:*)",
+      "Bash(cat C:/Users/lsx/Desktop/杂项/PaiAgent/.qoder/settings.json | python -m json.tool 2>/dev/null || echo \"Invalid JSON\")",
+      "Bash(python:*)",
+      "Bash(cd C:/Users/lsx/Desktop/杂项/PaiAgent/frontend && npx tsc --noEmit 2>&1 | head -30)",
+      "Bash(cd C:/Users/lsx/Desktop/杂项/PaiAgent/frontend && node node_modules/.bin/tsc --noEmit 2>&1 | head -30)"
+    ]
+  }
+}
