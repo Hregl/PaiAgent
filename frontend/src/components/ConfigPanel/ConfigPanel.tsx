@@ -35,12 +35,13 @@ export default function ConfigPanel() {
         return (
           <>
             <Form.Item label="Provider" name="provider">
-              <Select>
-                <Select.Option value="deepseek">DeepSeek</Select.Option>
-                <Select.Option value="qwen">Qwen</Select.Option>
-                <Select.Option value="chatglm">ChatGLM</Select.Option>
-                <Select.Option value="aiping">AI Ping</Select.Option>
-              </Select>
+              <Input disabled />
+            </Form.Item>
+            <Form.Item label="API Base URL" name="apiBaseUrl">
+              <Input placeholder="e.g. https://api.deepseek.com/v1" />
+            </Form.Item>
+            <Form.Item label="API Key" name="apiKey">
+              <Input.Password placeholder="sk-xxxxxxxx" />
             </Form.Item>
             <Form.Item label="Model" name="model">
               <Input placeholder="e.g. deepseek-chat, qwen-turbo" />

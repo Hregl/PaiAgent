@@ -61,14 +61,32 @@ public class SpringAiChatService {
 
     /**
      * Send a chat message to the specified LLM provider.
+     * Supports per-node API key and base URL overrides.
      *
-     * @param provider the LLM provider (deepseek, qwen, chatglm, aiping)
-     * @param prompt   the user prompt
-     * @param config   configuration including model, temperature, maxTokens
+     * @param provider     the LLM provider (deepseek, qwen, chatglm, aiping)
+     * @param prompt       the user prompt
+     * @param config       configuration including model, temperature, maxTokens
+     * @param nodeApiKey   optional per-node API key override
+     * @param nodeBaseUrl  optional per-node base URL override
      * @return the LLM response text
      */
-    public String chat(String provider, String prompt, Map<String, Object> config) {
-        ChatClient client = clients.get(provider);
+    public String chat(String provider, String prompt, Map<String, Object> config,
+                       String nodeApiKey, String nodeBaseUrl) {
+        ChatClient client;
+
+        if (nodeApiKey != null && !nodeApiKey.isBlank()) {
+            // Use node-level credentials — create a one-off ChatClient
+            String baseUrl = (nodeBaseUrl != null && !nodeBaseUrl.isBlank())
+                    ? stripTrailingSlash(nodeBaseUrl)
+                    : getDefaultBaseUrl(provider);
+            OpenAiApi openAiApi = new OpenAiApi(baseUrl, nodeApiKey);
+            OpenAiChatModel chatModel = new OpenAiChatModel(openAiApi);
+            client = ChatClient.builder(chatModel).build();
+        } else {
+            // Fall back to globally configured provider
+            client = clients.get(provider);
+        }
+
         if (client == null) {
             throw new IllegalArgumentException("LLM provider not configured or unknown: " + provider);
         }
@@ -84,7 +102,25 @@ public class SpringAiChatService {
                 .maxTokens(maxTokens)
                 .build());
 
-        return client.prompt(chatPrompt).call().content();
+        try {
+            return client.prompt(chatPrompt).call().content();
+        } catch (RuntimeException e) {
+            throw new RuntimeException(
+                "LLM call failed [provider=" + provider + ", model=" + model + "]: " + e.getMessage(), e);
+        }
+    }
+
+    private String stripTrailingSlash(String url) {
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    private String getDefaultBaseUrl(String provider) {
+        return switch (provider) {
+            case "deepseek" -> "https://api.deepseek.com/v1";
+            case "qwen" -> "https://dashscope.aliyuncs.com/compatible-mode/v1";
+            case "chatglm" -> "https://open.bigmodel.cn/api/paas/v4";
+            default -> "";
+        };
     }
 
     /**

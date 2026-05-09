@@ -8,6 +8,8 @@ export interface LLMNodeData {
   label: string;
   provider: LLMProvider;
   model: string;
+  apiBaseUrl: string;
+  apiKey: string;
   prompt: string;
   temperature?: number;
   maxTokens?: number;

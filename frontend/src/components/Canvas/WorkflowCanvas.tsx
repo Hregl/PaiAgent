@@ -115,15 +115,25 @@ export default function WorkflowCanvas() {
 
 function getDefaultNodeData(config: { type: string; subtype: string; label: string }) {
   switch (config.type) {
-    case 'llm':
+    case 'llm': {
+      const defaults: Record<string, { model: string; apiBaseUrl: string }> = {
+        deepseek: { model: 'deepseek-chat', apiBaseUrl: 'https://api.deepseek.com/v1' },
+        qwen: { model: 'qwen-turbo', apiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+        chatglm: { model: 'glm-4-flash', apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+        aiping: { model: '', apiBaseUrl: '' },
+      };
+      const d = defaults[config.subtype] || { model: '', apiBaseUrl: '' };
       return {
         label: config.label,
         provider: config.subtype as LLMProvider,
-        model: '',
+        model: d.model,
+        apiBaseUrl: d.apiBaseUrl,
+        apiKey: '',
         prompt: '{{input.output}}',
         temperature: 0.7,
         maxTokens: 2048,
       };
+    }
     case 'tts':
       return {
         label: config.label,

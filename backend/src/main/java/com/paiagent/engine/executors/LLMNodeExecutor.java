@@ -22,6 +22,8 @@ public class LLMNodeExecutor implements NodeExecutor {
         String provider = (String) nodeData.getOrDefault("provider", "deepseek");
         String model = (String) nodeData.getOrDefault("model", "");
         String promptTemplate = (String) nodeData.getOrDefault("prompt", "");
+        String apiKey = (String) nodeData.getOrDefault("apiKey", "");
+        String apiBaseUrl = (String) nodeData.getOrDefault("apiBaseUrl", "");
         Double temperature = nodeData.get("temperature") != null ?
                 ((Number) nodeData.get("temperature")).doubleValue() : 0.7;
         Integer maxTokens = nodeData.get("maxTokens") != null ?
@@ -36,7 +38,7 @@ public class LLMNodeExecutor implements NodeExecutor {
         config.put("temperature", temperature);
         config.put("maxTokens", maxTokens);
 
-        String response = chatService.chat(provider, resolvedPrompt, config);
+        String response = chatService.chat(provider, resolvedPrompt, config, apiKey, apiBaseUrl);
 
         Map<String, Object> output = new HashMap<>();
         output.put("output", response);
