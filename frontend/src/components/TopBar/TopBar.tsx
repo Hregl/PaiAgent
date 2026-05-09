@@ -1,4 +1,4 @@
-import { Input, Button, Space, Modal, Spin, Card } from 'antd';
+import { Input, Button, Space, Modal, Spin, Card, Alert } from 'antd';
 import {
   PlusOutlined,
   FolderOpenOutlined,
@@ -85,9 +85,16 @@ export default function TopBar() {
     setExecuteResult(null);
     try {
       const res = await executionApi.execute(workflowId, executeInput);
-      setExecuteResult(res.data);
+      if (res.code !== 200) {
+        setExecuteError(res.message || 'Execution failed');
+      } else {
+        setExecuteResult(res.data);
+      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Execution failed';
+      const msg =
+        (err && typeof err === 'object' && 'message' in err)
+          ? String((err as { message: string }).message)
+          : 'Execution failed';
       setExecuteError(msg);
     } finally {
       setExecuteLoading(false);
@@ -191,6 +198,14 @@ export default function TopBar() {
         footer={null}
         width={520}
       >
+        {!workflowId && (
+          <Alert
+            type="warning"
+            message="Please save the workflow first before executing"
+            style={{ marginBottom: 12 }}
+            showIcon
+          />
+        )}
         <Input.TextArea
           value={executeInput}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setExecuteInput(e.target.value)}

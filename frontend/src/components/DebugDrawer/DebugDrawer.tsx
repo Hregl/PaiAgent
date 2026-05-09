@@ -11,9 +11,8 @@ export default function DebugDrawer() {
   const workflowId = useWorkflowStore((s) => s.workflowId);
 
   const handleExecute = () => {
-    if (!workflowId) {
-      return;
-    }
+    if (!workflowId) return;
+    if (!input.trim()) return;
     execute(workflowId);
   };
 

@@ -33,9 +33,16 @@ export const useDebugStore = create<DebugState>((set, get) => ({
     set({ loading: true, error: null, result: null });
     try {
       const res = await executionApi.execute(workflowId, input);
-      set({ result: res.data, loading: false });
+      if (res.code !== 200) {
+        set({ error: res.message || 'Execution failed', loading: false });
+      } else {
+        set({ result: res.data, loading: false });
+      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Execution failed';
+      const message =
+        (err && typeof err === 'object' && 'message' in err)
+          ? String((err as { message: string }).message)
+          : 'Execution failed';
       set({ error: message, loading: false });
     }
   },
