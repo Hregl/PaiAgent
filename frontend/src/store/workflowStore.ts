@@ -56,7 +56,7 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
       label: 'DeepSeek',
       provider: 'deepseek' as LLMProvider,
       model: 'deepseek-chat',
-      apiBaseUrl: 'https://api.deepseek.com/v1',
+      apiBaseUrl: 'https://api.deepseek.com',
       apiKey: '',
       prompt: `基于以下内容生成一段播客脚本，要求口语化、有吸引力：\n\n{{${inputId}.output}}`,
       temperature: 0.7,

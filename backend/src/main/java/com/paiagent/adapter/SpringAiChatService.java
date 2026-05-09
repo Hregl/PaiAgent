@@ -73,6 +73,7 @@ public class SpringAiChatService {
     public String chat(String provider, String prompt, Map<String, Object> config,
                        String nodeApiKey, String nodeBaseUrl) {
         ChatClient client;
+        final String effectiveBaseUrl;
 
         if (nodeApiKey != null && !nodeApiKey.isBlank()) {
             // Use node-level credentials — create a one-off ChatClient
@@ -82,9 +83,11 @@ public class SpringAiChatService {
             OpenAiApi openAiApi = new OpenAiApi(baseUrl, nodeApiKey);
             OpenAiChatModel chatModel = new OpenAiChatModel(openAiApi);
             client = ChatClient.builder(chatModel).build();
+            effectiveBaseUrl = baseUrl;
         } else {
             // Fall back to globally configured provider
             client = clients.get(provider);
+            effectiveBaseUrl = "global";
         }
 
         if (client == null) {
@@ -106,7 +109,8 @@ public class SpringAiChatService {
             return client.prompt(chatPrompt).call().content();
         } catch (RuntimeException e) {
             throw new RuntimeException(
-                "LLM call failed [provider=" + provider + ", model=" + model + "]: " + e.getMessage(), e);
+                "LLM call failed [provider=" + provider + ", model=" + model
+                + ", baseUrl=" + effectiveBaseUrl + "]: " + e.getMessage(), e);
         }
     }
 
@@ -116,7 +120,7 @@ public class SpringAiChatService {
 
     private String getDefaultBaseUrl(String provider) {
         return switch (provider) {
-            case "deepseek" -> "https://api.deepseek.com/v1";
+            case "deepseek" -> "https://api.deepseek.com";
             case "qwen" -> "https://dashscope.aliyuncs.com/compatible-mode/v1";
             case "chatglm" -> "https://open.bigmodel.cn/api/paas/v4";
             default -> "";

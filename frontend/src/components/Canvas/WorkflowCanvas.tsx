@@ -117,7 +117,7 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
   switch (config.type) {
     case 'llm': {
       const defaults: Record<string, { model: string; apiBaseUrl: string }> = {
-        deepseek: { model: 'deepseek-chat', apiBaseUrl: 'https://api.deepseek.com/v1' },
+        deepseek: { model: 'deepseek-chat', apiBaseUrl: 'https://api.deepseek.com' },
         qwen: { model: 'qwen-turbo', apiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
         chatglm: { model: 'glm-4-flash', apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
         aiping: { model: '', apiBaseUrl: '' },
