@@ -1,19 +1,36 @@
 import { useWorkflowStore } from '../../store/workflowStore';
 import { Form, Input, Select, InputNumber, Button, Divider, message, Checkbox } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Node } from 'reactflow';
 import { CustomNodeData } from '../../types/workflow';
 
 const { TextArea } = Input;
 
 export default function ConfigPanel() {
-  const { nodes, selectedNodeId, updateNodeData } = useWorkflowStore();
+  const { nodes, edges, selectedNodeId, updateNodeData } = useWorkflowStore();
   const [form] = Form.useForm();
 
   const selectedNode: Node<CustomNodeData> | undefined = nodes.find(
     (n) => n.id === selectedNodeId
   );
+
+  const upstreamRefs = useMemo(() => {
+    if (!selectedNode) return [] as { label: string; value: string }[];
+    // Find connected upstream nodes via edges
+    const incomingEdges = edges.filter((e) => e.target === selectedNode.id);
+    const upstreamIds = incomingEdges.map((e) => e.source);
+    return nodes
+      .filter((n) => upstreamIds.includes(n.id))
+      .flatMap((n) => {
+        const data = n.data as CustomNodeData;
+        if (n.type === 'input') {
+          const vn = ('variableName' in data) ? (data as { variableName: string }).variableName : 'output';
+          return [{ label: `${n.id} → ${vn}`, value: `${n.id}.${vn}` }];
+        }
+        return [{ label: `${n.id} → output`, value: `${n.id}.output` }];
+      });
+  }, [selectedNode, nodes, edges]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -147,7 +164,17 @@ export default function ConfigPanel() {
                           }
                           return (
                             <Form.Item label="Reference" name={[name, 'value']} style={{ marginBottom: 0 }}>
-                              <Input placeholder="e.g. input_1.output" />
+                              {upstreamRefs.length > 0 ? (
+                                <Select placeholder="Select upstream node..." allowClear>
+                                  {upstreamRefs.map((ref) => (
+                                    <Select.Option key={ref.value} value={ref.value}>
+                                      {ref.label}
+                                    </Select.Option>
+                                  ))}
+                                </Select>
+                              ) : (
+                                <Input placeholder="e.g. node_1.output" />
+                              )}
                             </Form.Item>
                           );
                         }}

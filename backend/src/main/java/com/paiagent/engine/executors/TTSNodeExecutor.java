@@ -28,6 +28,7 @@ public class TTSNodeExecutor implements NodeExecutor {
         String resolvedText = "";
         String resolvedVoice = "Cherry";
         String resolvedLanguageType = "Auto";
+        String textRefValue = "";
 
         if (inputs != null) {
             for (Map<String, String> input : inputs) {
@@ -51,7 +52,10 @@ public class TTSNodeExecutor implements NodeExecutor {
                 }
 
                 switch (paramName) {
-                    case "text" -> resolvedText = resolvedValue;
+                    case "text" -> {
+                        resolvedText = resolvedValue;
+                        textRefValue = value;
+                    }
                     case "voice" -> resolvedVoice = resolvedValue;
                     case "language_type" -> resolvedLanguageType = resolvedValue;
                 }
@@ -59,7 +63,11 @@ public class TTSNodeExecutor implements NodeExecutor {
         }
 
         if (resolvedText.isEmpty()) {
-            throw new IllegalArgumentException("TTS input text is empty");
+            String available = context.getAllOutputs().keySet().toString();
+            throw new IllegalArgumentException(
+                "TTS text resolved to empty. Reference: '" + textRefValue
+                + "'. Upstream nodes in context: " + available
+                + ". HINT: Set text reference to e.g. '" + available.replaceAll("[\\[\\]]", "") + ".output'");
         }
 
         // Build config map for TTS adapter
