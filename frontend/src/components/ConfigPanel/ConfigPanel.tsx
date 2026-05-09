@@ -75,7 +75,7 @@ export default function ConfigPanel() {
         return (
           <>
             <Form.Item label="Variable Name" name="variableName">
-              <Input placeholder="user_input" />
+              <Input placeholder="output" />
             </Form.Item>
             <Form.Item label="Variable Type" name="variableType">
               <Input disabled value="String" />

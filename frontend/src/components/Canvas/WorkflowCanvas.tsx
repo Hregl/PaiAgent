@@ -133,7 +133,7 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
     case 'input':
       return {
         label: 'Input',
-        variableName: 'user_input',
+        variableName: 'output',
         variableType: 'String',
         description: '用户本轮的输入内容',
         required: true,

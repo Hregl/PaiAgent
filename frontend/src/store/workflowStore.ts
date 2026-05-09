@@ -45,7 +45,7 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
     id: inputId,
     type: 'input',
     position: { x: 80, y: 100 },
-    data: { label: 'Input', variableName: 'user_input', variableType: 'String', description: '用户本轮的输入内容', required: true },
+    data: { label: 'Input', variableName: 'output', variableType: 'String', description: '用户本轮的输入内容', required: true },
   };
 
   const llmNode: Node<CustomNodeData> = {
