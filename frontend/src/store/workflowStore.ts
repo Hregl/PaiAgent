@@ -109,7 +109,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setEdges: (edges) => set({ edges }),
 
   onNodesChange: (changes) => {
-    set({ nodes: applyNodeChanges(changes, get().nodes) });
+    // Block deletion of required input/output nodes
+    const filteredChanges = changes.filter((change) => {
+      if (change.type === 'remove') {
+        const node = get().nodes.find((n) => n.id === change.id);
+        if (node && (node.type === 'input' || node.type === 'output')) {
+          return false;
+        }
+      }
+      return true;
+    });
+    set({ nodes: applyNodeChanges(filteredChanges, get().nodes) });
   },
 
   onEdgesChange: (changes) => {

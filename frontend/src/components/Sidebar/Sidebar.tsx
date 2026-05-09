@@ -8,11 +8,6 @@ interface NodeItemConfig {
   color: string;
 }
 
-const ioNodes: NodeItemConfig[] = [
-  { type: 'input', subtype: 'input', label: 'Input', icon: '📥', color: '#f6ffed' },
-  { type: 'output', subtype: 'output', label: 'Output', icon: '📤', color: '#fff7e6' },
-];
-
 const llmNodes: NodeItemConfig[] = [
   { type: 'llm', subtype: 'deepseek', label: 'DeepSeek', icon: '🧠', color: '#e8f4fd' },
   { type: 'llm', subtype: 'qwen', label: '通义千问', icon: '🌟', color: '#fff7e6' },
@@ -33,23 +28,6 @@ export default function Sidebar() {
   return (
     <div>
       <h3 style={{ fontSize: 16, marginBottom: 16, color: '#333' }}>Node Library</h3>
-
-      <div className="sidebar-section">
-        <div className="sidebar-section-title">📥 I/O Nodes</div>
-        {ioNodes.map((node) => (
-          <div
-            key={node.subtype}
-            className="node-item"
-            draggable
-            onDragStart={(e) => onDragStart(e, node)}
-          >
-            <div className="node-item-icon" style={{ background: node.color }}>
-              {node.icon}
-            </div>
-            <span>{node.label}</span>
-          </div>
-        ))}
-      </div>
 
       <div className="sidebar-section">
         <div className="sidebar-section-title">🧠 LLM Nodes</div>
