@@ -76,6 +76,7 @@ export interface ExecutionResult {
   };
   nodeLogs: NodeLog[];
   durationMs: number;
+  error?: string;
 }
 
 export interface NodeLog {

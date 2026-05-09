@@ -70,8 +70,13 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
     position: { x: 600, y: 100 },
     data: {
       label: '超拟人音频合成',
-      voiceId: 'zhiyan',
-      inputRef: `${llmId}.output`,
+      apiKey: '',
+      model: 'qwen3-tts-flash',
+      inputs: [
+        { paramName: 'text', paramType: 'reference' as const, value: `${llmId}.output` },
+        { paramName: 'voice', paramType: 'input' as const, value: 'Cherry' },
+        { paramName: 'language_type', paramType: 'input' as const, value: 'Auto' },
+      ],
     },
   };
 

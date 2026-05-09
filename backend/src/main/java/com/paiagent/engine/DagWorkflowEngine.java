@@ -90,7 +90,13 @@ public class DagWorkflowEngine implements WorkflowEngine {
                 log.put("error", e.getMessage());
                 log.put("durationMs", System.currentTimeMillis() - nodeStart);
                 nodeLogs.add(log);
-                throw e;
+
+                // Return partial result so debug can show successful nodes
+                Map<String, Object> result = new HashMap<>();
+                result.put("nodeLogs", nodeLogs);
+                result.put("status", "FAILED");
+                result.put("error", "Node " + nodeId + " (" + type + ") failed: " + e.getMessage());
+                return result;
             }
         }
 

@@ -75,6 +75,10 @@ export default function DebugDrawer() {
             </div>
           </Card>
 
+          {result.status === 'FAILED' && result.error && (
+            <Alert type="error" message={result.error} style={{ marginBottom: 12 }} showIcon />
+          )}
+
           {result.output?.text && (
             <Card size="small" title="Text Output" style={{ marginBottom: 12 }}>
               <p style={{ whiteSpace: 'pre-wrap' }}>{result.output.text}</p>

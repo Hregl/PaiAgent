@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClient;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -31,10 +32,10 @@ public class TTSAdapter {
     /**
      * Synthesize text to audio.
      * @param text the text to synthesize
-     * @param voiceId the voice to use
+     * @param config configuration map with optional apiKey, model, voice, languageType
      * @return URL path to the generated audio file
      */
-    public String synthesize(String text, String voiceId) throws Exception {
+    public String synthesize(String text, Map<String, String> config) throws Exception {
         // Ensure audio directory exists
         File audioDir = new File(audioPath);
         if (!audioDir.exists()) {
@@ -44,9 +45,12 @@ public class TTSAdapter {
         String fileName = UUID.randomUUID().toString() + ".mp3";
         File outputFile = new File(audioDir, fileName);
 
-        if (baseUrl != null && !baseUrl.isEmpty()) {
+        String nodeApiKey = config.getOrDefault("apiKey", "");
+        String nodeBaseUrl = baseUrl; // use global baseUrl for now
+
+        if ((nodeApiKey != null && !nodeApiKey.isBlank()) || (baseUrl != null && !baseUrl.isEmpty())) {
             // Call real TTS API
-            callTTSApi(text, voiceId, outputFile);
+            callTTSApi(text, config, outputFile);
         } else {
             // Fallback: generate a placeholder audio file for demo purposes
             generatePlaceholderAudio(text, outputFile);
@@ -55,17 +59,25 @@ public class TTSAdapter {
         return "/files/audio/" + fileName;
     }
 
-    private void callTTSApi(String text, String voiceId, File outputFile) throws Exception {
-        // Generic TTS API call - adjust based on your provider
+    private void callTTSApi(String text, Map<String, String> config, File outputFile) throws Exception {
+        String model = config.getOrDefault("model", "qwen3-tts-flash");
+        String voice = config.getOrDefault("voice", "Cherry");
+        String languageType = config.getOrDefault("languageType", "Auto");
+        String nodeApiKey = config.getOrDefault("apiKey", "");
+        String effectiveApiKey = (nodeApiKey != null && !nodeApiKey.isBlank()) ? nodeApiKey : apiKey;
+
+        // Build request body for TTS API
         String requestBody = String.format(
-                "{\"text\":\"%s\",\"voice\":\"%s\",\"format\":\"mp3\"}",
-                text.replace("\"", "\\\"").replace("\n", "\\n"),
-                voiceId
+                "{\"model\":\"%s\",\"input\":{\"text\":\"%s\"},\"parameters\":{\"voice\":\"%s\",\"language_type\":\"%s\"}}",
+                model,
+                text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n"),
+                voice,
+                languageType
         );
 
         byte[] audioBytes = restClient.post()
                 .uri(baseUrl + "/synthesize")
-                .header("Authorization", "Bearer " + apiKey)
+                .header("Authorization", "Bearer " + effectiveApiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(requestBody)
                 .retrieve()

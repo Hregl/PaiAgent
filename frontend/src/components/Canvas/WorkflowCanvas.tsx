@@ -137,8 +137,13 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
     case 'tts':
       return {
         label: config.label,
-        voiceId: 'zhiyan',
-        inputRef: '',
+        apiKey: '',
+        model: 'qwen3-tts-flash',
+        inputs: [
+          { paramName: 'text', paramType: 'reference' as const, value: '' },
+          { paramName: 'voice', paramType: 'input' as const, value: 'Cherry' },
+          { paramName: 'language_type', paramType: 'input' as const, value: 'Auto' },
+        ],
       };
     case 'input':
       return {

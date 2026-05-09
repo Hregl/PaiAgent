@@ -47,20 +47,28 @@ public class ExecutionController {
             Map<String, Object> result = workflowEngine.execute(workflow.getDefinition(), request.getInput());
             long duration = System.currentTimeMillis() - startTime;
 
+            String execStatus = (String) result.getOrDefault("status", "SUCCESS");
+
             // Save execution log
             ExecutionLog log = new ExecutionLog();
             log.setId(UUID.randomUUID().toString());
             log.setWorkflowId(id);
             log.setInput(request.getInput());
-            log.setOutput(objectMapper.writeValueAsString(result));
-            log.setStatus("SUCCESS");
+            log.setStatus(execStatus);
             log.setDurationMs((int) duration);
             log.setCreatedAt(LocalDateTime.now());
+
+            if ("FAILED".equals(execStatus)) {
+                // Partial execution — store error in output field
+                log.setOutput((String) result.getOrDefault("error", "Unknown error"));
+            } else {
+                log.setOutput(objectMapper.writeValueAsString(result));
+            }
             executionLogRepository.save(log);
 
             result.put("executionId", log.getId());
-            result.put("status", "SUCCESS");
             result.put("durationMs", duration);
+            // Return code 200 even on partial failure so frontend gets nodeLogs
             return ApiResponse.success(result);
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
