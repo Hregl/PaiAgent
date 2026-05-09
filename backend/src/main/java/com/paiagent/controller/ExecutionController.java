@@ -1,6 +1,7 @@
 package com.paiagent.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.paiagent.engine.DagWorkflowEngine;
 import com.paiagent.engine.WorkflowEngine;
 import com.paiagent.model.dto.ApiResponse;
 import com.paiagent.model.dto.ExecutionRequest;
@@ -9,11 +10,13 @@ import com.paiagent.model.entity.Workflow;
 import com.paiagent.repository.ExecutionLogRepository;
 import com.paiagent.repository.WorkflowRepository;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api")
@@ -96,5 +99,81 @@ public class ExecutionController {
             return ApiResponse.error(404, "Execution not found");
         }
         return ApiResponse.success(log);
+    }
+
+    /**
+     * SSE streaming endpoint — pushes per-node progress events to the frontend.
+     */
+    @GetMapping("/workflows/{id}/execute-stream")
+    public SseEmitter executeStream(@PathVariable String id, @RequestParam String input) {
+        Workflow workflow = workflowRepository.findById(id).orElse(null);
+        if (workflow == null) {
+            SseEmitter errorEmitter = new SseEmitter(0L);
+            errorEmitter.completeWithError(new IllegalArgumentException("Workflow not found"));
+            return errorEmitter;
+        }
+
+        SseEmitter emitter = new SseEmitter(300_000L); // 5 min timeout
+        String defJson = workflow.getDefinition();
+        String userInput = input;
+
+        CompletableFuture.runAsync(() -> {
+            long startTime = System.currentTimeMillis();
+            try {
+                if (!(workflowEngine instanceof DagWorkflowEngine)) {
+                    emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data(Map.of("message", "Progress streaming only supports DAG engine")));
+                    emitter.complete();
+                    return;
+                }
+
+                DagWorkflowEngine dagEngine = (DagWorkflowEngine) workflowEngine;
+                Map<String, Object> result = dagEngine.executeWithProgress(defJson, userInput, progress -> {
+                    try {
+                        emitter.send(SseEmitter.event()
+                                .name("progress")
+                                .data(progress));
+                    } catch (Exception ignored) {
+                    }
+                });
+
+                long duration = System.currentTimeMillis() - startTime;
+                String execStatus = (String) result.getOrDefault("status", "SUCCESS");
+
+                // Save execution log
+                ExecutionLog log = new ExecutionLog();
+                log.setId(UUID.randomUUID().toString());
+                log.setWorkflowId(id);
+                log.setInput(userInput);
+                log.setStatus(execStatus);
+                log.setDurationMs((int) duration);
+                log.setCreatedAt(LocalDateTime.now());
+                if ("FAILED".equals(execStatus)) {
+                    log.setOutput((String) result.getOrDefault("error", "Unknown error"));
+                } else {
+                    log.setOutput(objectMapper.writeValueAsString(result));
+                }
+                executionLogRepository.save(log);
+
+                result.put("executionId", log.getId());
+                result.put("durationMs", duration);
+
+                emitter.send(SseEmitter.event()
+                        .name("result")
+                        .data(result));
+                emitter.complete();
+            } catch (Exception e) {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data(Map.of("message", e.getMessage())));
+                } catch (Exception ignored) {
+                }
+                emitter.complete();
+            }
+        });
+
+        return emitter;
     }
 }

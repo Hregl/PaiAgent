@@ -88,3 +88,12 @@ export interface NodeLog {
   durationMs: number;
   error?: string;
 }
+
+export interface ProgressEntry {
+  nodeId: string;
+  nodeType: string;
+  label: string;
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED';
+  message: string;
+  durationMs?: number;
+}

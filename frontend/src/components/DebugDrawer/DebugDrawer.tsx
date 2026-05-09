@@ -1,12 +1,12 @@
-import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag } from 'antd';
-import { PlayCircleOutlined, SendOutlined, CaretRightOutlined } from '@ant-design/icons';
+import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps } from 'antd';
+import { PlayCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useDebugStore } from '../../store/debugStore';
 import { useWorkflowStore } from '../../store/workflowStore';
 
 const { TextArea } = Input;
 
 export default function DebugDrawer() {
-  const { isOpen, closeDrawer, input, setInput, result, loading, error, execute } =
+  const { isOpen, closeDrawer, input, setInput, result, progressMessages, loading, error, execute } =
     useDebugStore();
   const workflowId = useWorkflowStore((s) => s.workflowId);
 
@@ -53,9 +53,38 @@ export default function DebugDrawer() {
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: 40 }}>
-          <Spin size="large" />
-          <div style={{ marginTop: 12, color: '#999' }}>Executing workflow...</div>
+        <div style={{ marginTop: 12 }}>
+          {progressMessages.length > 0 ? (
+            <Steps
+              direction="vertical"
+              size="small"
+              current={progressMessages.length - 1}
+              items={progressMessages.map((p) => ({
+                title: (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Tag color={p.nodeType === 'input' ? 'blue' : p.nodeType === 'llm' ? 'purple' : p.nodeType === 'tts' ? 'orange' : 'green'}>
+                      {p.nodeType.toUpperCase()}
+                    </Tag>
+                    <span style={{ fontWeight: 500 }}>{p.label}</span>
+                  </span>
+                ),
+                description: (
+                  <span style={{ color: p.status === 'RUNNING' ? '#1890ff' : p.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
+                    {p.status === 'RUNNING' && <LoadingOutlined style={{ marginRight: 4 }} />}
+                    {p.status === 'SUCCESS' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
+                    {p.status === 'FAILED' && <CloseCircleOutlined style={{ marginRight: 4 }} />}
+                    {p.message}
+                  </span>
+                ),
+                status: p.status === 'RUNNING' ? 'process' : p.status === 'SUCCESS' ? 'finish' : 'error',
+              }))}
+            />
+          ) : (
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <Spin size="large" />
+              <div style={{ marginTop: 8, color: '#999', fontSize: 13 }}>Starting execution...</div>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,5 +1,7 @@
 package com.paiagent.adapter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -16,6 +18,8 @@ import java.util.UUID;
  */
 @Component
 public class TTSAdapter {
+
+    private static final Logger log = LoggerFactory.getLogger(TTSAdapter.class);
 
     @Value("${tts.api-key:}")
     private String apiKey;
@@ -41,7 +45,7 @@ public class TTSAdapter {
             audioDir.mkdirs();
         }
 
-        String fileName = UUID.randomUUID().toString() + ".mp3";
+        String fileName = UUID.randomUUID().toString() + ".wav";
         File outputFile = new File(audioDir, fileName);
 
         String nodeApiKey = config.getOrDefault("apiKey", "");
@@ -89,6 +93,8 @@ public class TTSAdapter {
                 .retrieve()
                 .body(String.class);
 
+        log.info("TTS API response (first 500 chars): {}", response != null ? response.substring(0, Math.min(500, response.length())) : "null");
+
         if (response != null) {
             // Parse DashScope multimodal-generation TTS response
             // Format: {"output":{"choices":[{"message":{"content":[{"audio":"base64..."}]}}]}}
@@ -131,15 +137,23 @@ public class TTSAdapter {
                     if (audio != null) {
                         if (audio.get("url") != null) {
                             String audioUrl = audio.get("url").toString();
-                            byte[] audioBytes = restClient.get()
-                                    .uri(audioUrl)
-                                    .retrieve()
-                                    .body(byte[].class);
-                            if (audioBytes != null) {
-                                try (FileOutputStream fos = new FileOutputStream(outputFile)) {
-                                    fos.write(audioBytes);
+                            log.info("Downloading audio from URL: {}", audioUrl);
+                            try {
+                                byte[] audioBytes = restClient.get()
+                                        .uri(java.net.URI.create(audioUrl))
+                                        .retrieve()
+                                        .body(byte[].class);
+                                log.info("Downloaded {} bytes of audio", audioBytes != null ? audioBytes.length : 0);
+                                if (audioBytes != null && audioBytes.length > 0) {
+                                    try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                                        fos.write(audioBytes);
+                                    }
+                                    log.info("Audio saved to: {}", outputFile.getAbsolutePath());
+                                    return;
                                 }
-                                return;
+                                log.warn("Audio download returned empty bytes, URL: {}", audioUrl);
+                            } catch (Exception downloadEx) {
+                                log.error("Failed to download audio from OSS: {}", downloadEx.getMessage());
                             }
                         }
                         if (audio.get("data") != null) {
@@ -151,6 +165,7 @@ public class TTSAdapter {
                         }
                     }
                 }
+                log.warn("Could not extract audio from TTS response. output keys: {}", output != null ? output.keySet() : "null");
             } catch (Exception jsonEx) {
                 // Not JSON or unexpected format — treat response as raw audio bytes
                 try (FileOutputStream fos = new FileOutputStream(outputFile)) {
