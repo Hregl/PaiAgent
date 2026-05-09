@@ -77,6 +77,7 @@ public class DagWorkflowEngine implements WorkflowEngine {
                 log.put("nodeId", nodeId);
                 log.put("nodeType", type);
                 log.put("status", "SUCCESS");
+                log.put("input", maskSensitiveData(data));
                 log.put("output", output);
                 log.put("durationMs", System.currentTimeMillis() - nodeStart);
                 nodeLogs.add(log);
@@ -85,6 +86,7 @@ public class DagWorkflowEngine implements WorkflowEngine {
                 log.put("nodeId", nodeId);
                 log.put("nodeType", type);
                 log.put("status", "FAILED");
+                log.put("input", maskSensitiveData(data));
                 log.put("error", e.getMessage());
                 log.put("durationMs", System.currentTimeMillis() - nodeStart);
                 nodeLogs.add(log);
@@ -131,5 +133,18 @@ public class DagWorkflowEngine implements WorkflowEngine {
             throw new IllegalArgumentException("Workflow contains a cycle");
         }
         return order;
+    }
+
+    /**
+     * Create a copy of node data with sensitive fields masked for debug logging.
+     */
+    private Map<String, Object> maskSensitiveData(Map<String, Object> data) {
+        Map<String, Object> masked = new HashMap<>(data);
+        masked.remove("_userInput");
+        if (masked.containsKey("apiKey") && masked.get("apiKey") != null
+                && !masked.get("apiKey").toString().isBlank()) {
+            masked.put("apiKey", "***");
+        }
+        return masked;
     }
 }

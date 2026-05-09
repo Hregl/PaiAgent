@@ -60,16 +60,119 @@ export default function ConfigPanel() {
       case 'tts':
         return (
           <>
-            <Form.Item label="Voice ID" name="voiceId">
-              <Select>
-                <Select.Option value="zhiyan">Zhiyan (Female)</Select.Option>
-                <Select.Option value="zhida">Zhida (Male)</Select.Option>
-                <Select.Option value="zhimiao">Zhimiao (Child)</Select.Option>
-              </Select>
+            <Form.Item label="API Key" name="apiKey">
+              <Input.Password placeholder="sk-xxxxxxxx" />
             </Form.Item>
-            <Form.Item label="Input Reference" name="inputRef">
-              <Input placeholder="e.g. node_2.output" />
+            <Form.Item label="Model" name="model">
+              <Input placeholder="qwen3-tts-flash" />
             </Form.Item>
+
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              输入参数
+            </Divider>
+            <Form.List name="inputs">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name }) => (
+                    <div
+                      key={key}
+                      style={{
+                        marginBottom: 12,
+                        padding: 12,
+                        background: '#fafafa',
+                        borderRadius: 8,
+                        position: 'relative',
+                      }}
+                    >
+                      <Form.Item
+                        label="Parameter Name"
+                        name={[name, 'paramName']}
+                        rules={[{ required: true, message: 'Required' }]}
+                        style={{ marginBottom: 8 }}
+                      >
+                        <Select>
+                          <Select.Option value="text">text</Select.Option>
+                          <Select.Option value="voice">voice</Select.Option>
+                          <Select.Option value="language_type">language_type</Select.Option>
+                        </Select>
+                      </Form.Item>
+                      <Form.Item
+                        label="Parameter Type"
+                        name={[name, 'paramType']}
+                        rules={[{ required: true }]}
+                        style={{ marginBottom: 8 }}
+                      >
+                        <Select>
+                          <Select.Option value="input">Input</Select.Option>
+                          <Select.Option value="reference">Reference</Select.Option>
+                        </Select>
+                      </Form.Item>
+                      <Form.Item
+                        noStyle
+                        shouldUpdate={(prev, cur) => {
+                          const pn = prev.inputs?.[name]?.paramName !== cur.inputs?.[name]?.paramName;
+                          const pt = prev.inputs?.[name]?.paramType !== cur.inputs?.[name]?.paramType;
+                          return pn || pt;
+                        }}
+                      >
+                        {({ getFieldValue }) => {
+                          const paramType = getFieldValue(['inputs', name, 'paramType']);
+                          const paramName = getFieldValue(['inputs', name, 'paramName']);
+                          if (paramType === 'input') {
+                            if (paramName === 'voice') {
+                              return (
+                                <Form.Item label="Value" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                                  <Select>
+                                    <Select.Option value="Cherry">Cherry</Select.Option>
+                                    <Select.Option value="Serena">Serena</Select.Option>
+                                    <Select.Option value="Ethan">Ethan</Select.Option>
+                                  </Select>
+                                </Form.Item>
+                              );
+                            }
+                            if (paramName === 'language_type') {
+                              return (
+                                <Form.Item label="Value" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                                  <Select>
+                                    <Select.Option value="Auto">Auto</Select.Option>
+                                  </Select>
+                                </Form.Item>
+                              );
+                            }
+                            return (
+                              <Form.Item label="Value" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                                <TextArea rows={2} placeholder="Enter text to synthesize..." />
+                              </Form.Item>
+                            );
+                          }
+                          return (
+                            <Form.Item label="Reference" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                              <Input placeholder="e.g. input_1.output" />
+                            </Form.Item>
+                          );
+                        }}
+                      </Form.Item>
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        onClick={() => remove(name)}
+                        style={{ position: 'absolute', top: 4, right: 4 }}
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    type="dashed"
+                    onClick={() => add({ paramName: 'text', paramType: 'reference', value: '' })}
+                    block
+                    icon={<PlusOutlined />}
+                  >
+                    Add Input
+                  </Button>
+                </>
+              )}
+            </Form.List>
           </>
         );
       case 'input':

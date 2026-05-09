@@ -1,5 +1,5 @@
-import { Drawer, Input, Button, Alert, Spin, Card } from 'antd';
-import { PlayCircleOutlined, SendOutlined } from '@ant-design/icons';
+import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag } from 'antd';
+import { PlayCircleOutlined, SendOutlined, CaretRightOutlined } from '@ant-design/icons';
 import { useDebugStore } from '../../store/debugStore';
 import { useWorkflowStore } from '../../store/workflowStore';
 
@@ -82,7 +82,7 @@ export default function DebugDrawer() {
           )}
 
           {result.output?.audioUrl && (
-            <Card size="small" title="Audio Output" className="audio-player">
+            <Card size="small" title="Audio Output" className="audio-player" style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <PlayCircleOutlined style={{ fontSize: 20, color: '#667eea' }} />
                 <span>AI Podcast Audio</span>
@@ -94,28 +94,73 @@ export default function DebugDrawer() {
           )}
 
           {result.nodeLogs && result.nodeLogs.length > 0 && (
-            <Card size="small" title="Node Execution Logs">
-              {result.nodeLogs.map((log) => (
-                <div
-                  key={log.nodeId}
-                  style={{
-                    padding: '6px 0',
-                    borderBottom: '1px solid #f0f0f0',
-                    fontSize: 12,
-                  }}
-                >
-                  <span style={{ fontWeight: 600 }}>{log.nodeId}</span>
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      color: log.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f',
-                    }}
-                  >
-                    {log.status}
-                  </span>
-                  <span style={{ marginLeft: 8, color: '#999' }}>{log.durationMs}ms</span>
-                </div>
-              ))}
+            <Card size="small" title="Node Execution Detail" style={{ marginBottom: 12 }}>
+              <Collapse
+                expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
+                items={result.nodeLogs.map((log) => ({
+                  key: log.nodeId,
+                  label: (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Tag color={log.nodeType === 'input' ? 'blue' : log.nodeType === 'llm' ? 'purple' : log.nodeType === 'tts' ? 'orange' : 'green'}>
+                        {log.nodeType.toUpperCase()}
+                      </Tag>
+                      <span style={{ fontWeight: 600 }}>{log.nodeId}</span>
+                      <Tag color={log.status === 'SUCCESS' ? 'success' : 'error'}>
+                        {log.status}
+                      </Tag>
+                      <span style={{ color: '#999', fontSize: 12 }}>{log.durationMs}ms</span>
+                    </span>
+                  ),
+                  children: (
+                    <div>
+                      <div style={{ marginBottom: 8 }}>
+                        <strong style={{ color: '#1890ff' }}>Input:</strong>
+                        <pre style={{
+                          background: '#f5f5f5',
+                          padding: 8,
+                          borderRadius: 4,
+                          fontSize: 12,
+                          maxHeight: 200,
+                          overflow: 'auto',
+                          marginTop: 4,
+                        }}>
+                          {JSON.stringify(log.input, null, 2)}
+                        </pre>
+                      </div>
+                      {log.status === 'SUCCESS' && (
+                        <div>
+                          <strong style={{ color: '#52c41a' }}>Output:</strong>
+                          <pre style={{
+                            background: '#f5f5f5',
+                            padding: 8,
+                            borderRadius: 4,
+                            fontSize: 12,
+                            maxHeight: 200,
+                            overflow: 'auto',
+                            marginTop: 4,
+                          }}>
+                            {JSON.stringify(log.output, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                      {log.error && (
+                        <div>
+                          <strong style={{ color: '#ff4d4f' }}>Error:</strong>
+                          <pre style={{
+                            background: '#fff2f0',
+                            padding: 8,
+                            borderRadius: 4,
+                            fontSize: 12,
+                            marginTop: 4,
+                          }}>
+                            {log.error}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  ),
+                }))}
+              />
             </Card>
           )}
         </div>

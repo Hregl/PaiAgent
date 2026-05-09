@@ -15,10 +15,17 @@ export interface LLMNodeData {
   maxTokens?: number;
 }
 
+export interface TTSParam {
+  paramName: string;
+  paramType: 'input' | 'reference';
+  value: string;
+}
+
 export interface TTSNodeData {
   label: string;
-  voiceId: string;
-  inputRef: string;
+  apiKey: string;
+  model: string;
+  inputs: TTSParam[];
 }
 
 export interface InputNodeData {
@@ -75,6 +82,7 @@ export interface NodeLog {
   nodeId: string;
   nodeType: string;
   status: 'SUCCESS' | 'FAILED';
+  input: Record<string, unknown>;
   output: Record<string, unknown>;
   durationMs: number;
   error?: string;
