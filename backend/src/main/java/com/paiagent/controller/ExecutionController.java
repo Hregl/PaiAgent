@@ -10,14 +10,17 @@ import com.paiagent.model.entity.Workflow;
 import com.paiagent.repository.ExecutionLogRepository;
 import com.paiagent.repository.WorkflowRepository;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,80 +124,109 @@ public class ExecutionController {
     }
 
     /**
-     * SSE streaming endpoint — pushes per-node progress events to the frontend.
+     * SSE streaming endpoint — writes per-node progress events directly to the response
+     * with immediate flush, ensuring the frontend sees each node start/finish in real time.
      */
     @GetMapping("/workflows/{id}/execute-stream")
-    public SseEmitter executeStream(@PathVariable String id, @RequestParam String input) {
+    public void executeStream(@PathVariable String id, @RequestParam String input,
+                              HttpServletResponse response) {
         Workflow workflow = workflowRepository.findById(id).orElse(null);
-        if (workflow == null) {
-            SseEmitter errorEmitter = new SseEmitter(0L);
-            errorEmitter.completeWithError(new IllegalArgumentException("Workflow not found"));
-            return errorEmitter;
-        }
 
-        SseEmitter emitter = new SseEmitter(300_000L); // 5 min timeout
-        String defJson = workflow.getDefinition();
-        String userInput = input;
+        // Set SSE headers
+        response.setContentType("text/event-stream");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        response.setHeader("X-Accel-Buffering", "no");  // Disable nginx buffering
+        response.setBufferSize(0);  // Disable Tomcat output buffer — force immediate flush
 
-        CompletableFuture.runAsync(() -> {
-            long startTime = System.currentTimeMillis();
-            try {
-                if (!(workflowEngine instanceof DagWorkflowEngine)) {
-                    emitter.send(SseEmitter.event()
-                            .name("error")
-                            .data(Map.of("message", "Progress streaming only supports DAG engine")));
-                    emitter.complete();
-                    return;
-                }
+        try {
+            PrintWriter writer = response.getWriter();
 
-                DagWorkflowEngine dagEngine = (DagWorkflowEngine) workflowEngine;
-                Map<String, Object> result = dagEngine.executeWithProgress(defJson, userInput, progress -> {
+            // Send initial comment to establish SSE connection and flush headers
+            writer.write(": connected\n\n");
+            writer.flush();
+
+            CountDownLatch latch = new CountDownLatch(1);
+
+            if (workflow == null) {
+                writeSSE(writer, "error", objectMapper.writeValueAsString(Map.of("message", "工作流不存在")));
+                writer.close();
+                return;
+            }
+
+            if (!(workflowEngine instanceof DagWorkflowEngine)) {
+                writeSSE(writer, "error", objectMapper.writeValueAsString(Map.of("message", "仅 DAG 引擎支持进度推送")));
+                writer.close();
+                return;
+            }
+
+            String defJson = workflow.getDefinition();
+            String userInput = input;
+            DagWorkflowEngine dagEngine = (DagWorkflowEngine) workflowEngine;
+
+            CompletableFuture.runAsync(() -> {
+                long startTime = System.currentTimeMillis();
+                try {
+                    Map<String, Object> result = dagEngine.executeWithProgress(defJson, userInput, progress -> {
+                        try {
+                            String eventData = objectMapper.writeValueAsString(progress);
+                            log.info("SSE progress: nodeId={}, type={}, status={}",
+                                    progress.get("nodeId"), progress.get("nodeType"), progress.get("status"));
+                            writeSSE(writer, "progress", eventData);
+                        } catch (Exception ex) {
+                            log.error("SSE progress write failed", ex);
+                        }
+                    });
+
+                    long duration = System.currentTimeMillis() - startTime;
+                    String execStatus = (String) result.getOrDefault("status", "SUCCESS");
+
+                    // Save execution log
+                    ExecutionLog execLog = new ExecutionLog();
+                    execLog.setId(UUID.randomUUID().toString());
+                    execLog.setWorkflowId(id);
+                    execLog.setInput(userInput);
+                    execLog.setStatus(execStatus);
+                    execLog.setDurationMs((int) duration);
+                    execLog.setCreatedAt(LocalDateTime.now());
+                    if ("FAILED".equals(execStatus)) {
+                        execLog.setOutput((String) result.getOrDefault("error", "Unknown error"));
+                    } else {
+                        execLog.setOutput(objectMapper.writeValueAsString(result));
+                    }
+                    executionLogRepository.save(execLog);
+
+                    result.put("executionId", execLog.getId());
+                    result.put("durationMs", duration);
+
+                    writeSSE(writer, "result", objectMapper.writeValueAsString(result));
+                    log.info("SSE result sent, executionId={}, status={}", result.get("executionId"), execStatus);
+                } catch (Exception e) {
                     try {
-                        emitter.send(SseEmitter.event()
-                                .name("progress")
-                                .data(progress));
+                        writeSSE(writer, "error", objectMapper.writeValueAsString(Map.of("message", e.getMessage())));
                     } catch (Exception ignored) {
                     }
-                });
-
-                long duration = System.currentTimeMillis() - startTime;
-                String execStatus = (String) result.getOrDefault("status", "SUCCESS");
-
-                // Save execution log
-                ExecutionLog execLog = new ExecutionLog();
-                execLog.setId(UUID.randomUUID().toString());
-                execLog.setWorkflowId(id);
-                execLog.setInput(userInput);
-                execLog.setStatus(execStatus);
-                execLog.setDurationMs((int) duration);
-                execLog.setCreatedAt(LocalDateTime.now());
-                if ("FAILED".equals(execStatus)) {
-                    execLog.setOutput((String) result.getOrDefault("error", "Unknown error"));
-                } else {
-                    execLog.setOutput(objectMapper.writeValueAsString(result));
+                } finally {
+                    latch.countDown();
                 }
-                executionLogRepository.save(execLog);
+            });
 
-                result.put("executionId", execLog.getId());
-                result.put("durationMs", duration);
+            // Keep connection alive until async task completes
+            latch.await(5, TimeUnit.MINUTES);
+            writer.close();
+        } catch (Exception e) {
+            log.error("SSE stream error", e);
+        }
+    }
 
-                log.info("SSE result output: {}", result.get("output"));
-
-                emitter.send(SseEmitter.event()
-                        .name("result")
-                        .data(result));
-                emitter.complete();
-            } catch (Exception e) {
-                try {
-                    emitter.send(SseEmitter.event()
-                            .name("error")
-                            .data(Map.of("message", e.getMessage())));
-                } catch (Exception ignored) {
-                }
-                emitter.complete();
-            }
-        });
-
-        return emitter;
+    /**
+     * Write a single SSE event and immediately flush to the client.
+     */
+    private void writeSSE(PrintWriter writer, String event, String data) {
+        writer.write("event: " + event + "\n");
+        writer.write("data: " + data + "\n\n");
+        writer.flush();
+        log.debug("SSE flushed: event={}, len={}", event, data.length());
     }
 }
