@@ -1,4 +1,4 @@
-import { Input, Button, Space, Modal, Spin, Card, Alert } from 'antd';
+import { Input, Button, Space, Modal, Spin, Card, Alert, Select } from 'antd';
 import {
   PlusOutlined,
   FolderOpenOutlined,
@@ -14,12 +14,13 @@ import { useAuthStore } from '../../store/authStore';
 import { useDebugStore } from '../../store/debugStore';
 import { workflowApi } from '../../api/workflow';
 import { executionApi } from '../../api/execution';
+import { configApi } from '../../api/config';
 import { message } from 'antd';
-import { useState } from 'react';
-import { Workflow, ExecutionResult } from '../../types/workflow';
+import { useState, useEffect } from 'react';
+import { Workflow, ExecutionResult, EngineType } from '../../types/workflow';
 
 export default function TopBar() {
-  const { workflowName, setWorkflowName, workflowId, setWorkflowId, nodes, edges, resetWorkflow, setNodes, setEdges } =
+  const { workflowName, setWorkflowName, workflowId, setWorkflowId, nodes, edges, resetWorkflow, setNodes, setEdges, engineType, setEngineType } =
     useWorkflowStore();
   const { user, logout } = useAuthStore();
   const { openDrawer } = useDebugStore();
@@ -32,6 +33,27 @@ export default function TopBar() {
   const [executeResult, setExecuteResult] = useState<ExecutionResult | null>(null);
   const [executeLoading, setExecuteLoading] = useState(false);
   const [executeError, setExecuteError] = useState<string | null>(null);
+
+  // Load current engine type from backend on mount
+  useEffect(() => {
+    configApi.getEngineType().then((res: unknown) => {
+      const data = res as { code: number; data: { engineType: string } };
+      if (data.code === 200 && data.data?.engineType) {
+        setEngineType(data.data.engineType as EngineType);
+      }
+    }).catch(() => {
+      // Keep default if backend unavailable
+    });
+  }, [setEngineType]);
+
+  const handleEngineSwitch = (type: EngineType) => {
+    configApi.setEngineType(type).then(() => {
+      setEngineType(type);
+      message.success(`引擎已切换为: ${type === 'dag' ? 'DAG' : 'LangGraph'}`);
+    }).catch(() => {
+      message.error('引擎切换失败');
+    });
+  };
 
   const handleNew = () => {
     resetWorkflow();
@@ -140,6 +162,16 @@ export default function TopBar() {
           >
             运行
           </Button>
+          <Select
+            value={engineType}
+            onChange={handleEngineSwitch}
+            size="small"
+            style={{ width: 110 }}
+            options={[
+              { label: 'DAG', value: 'dag' as EngineType },
+              { label: 'LangGraph', value: 'langgraph' as EngineType },
+            ]}
+          />
           <Button
             type="primary"
             icon={<BugOutlined />}

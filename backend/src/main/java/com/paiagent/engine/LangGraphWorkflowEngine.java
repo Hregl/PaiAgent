@@ -5,17 +5,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.state.AgentState;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * LangGraph4j-based workflow engine for AI agent orchestration.
  * Supports cyclic graphs and agent-style state management.
  */
 @Component
-@ConditionalOnProperty(name = "engine.type", havingValue = "langgraph")
 public class LangGraphWorkflowEngine implements WorkflowEngine {
 
     private final NodeExecutorFactory executorFactory;
@@ -29,6 +28,22 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> execute(String definitionJson, String userInput) throws Exception {
+        return executeInternal(definitionJson, userInput, null);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> executeWithProgress(String definitionJson, String userInput,
+                                                     Consumer<Map<String, Object>> progressCallback) throws Exception {
+        return executeInternal(definitionJson, userInput, progressCallback);
+    }
+
+    /**
+     * Shared execution logic. When progressCallback is non-null, per-node progress events
+     * are emitted in real time (RUNNING → SUCCESS/FAILED).
+     */
+    private Map<String, Object> executeInternal(String definitionJson, String userInput,
+                                                 Consumer<Map<String, Object>> progressCallback) throws Exception {
         Map<String, Object> definition = objectMapper.readValue(definitionJson, new TypeReference<Map<String, Object>>() {});
         List<Map<String, Object>> nodes = (List<Map<String, Object>>) definition.get("nodes");
         List<Map<String, Object>> edges = (List<Map<String, Object>>) definition.get("edges");
@@ -39,12 +54,21 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
 
         String entryNodeId = findEntryNodeId(nodes, edges);
 
+        // Build node lookup map for label resolution
+        Map<String, Map<String, Object>> nodeMap = new HashMap<>();
+        for (Map<String, Object> node : nodes) {
+            nodeMap.put((String) node.get("id"), node);
+        }
+
+        // Thread-safe log collector for node execution records
+        List<Map<String, Object>> nodeLogs = Collections.synchronizedList(new ArrayList<>());
+
         // Build LangGraph StateGraph
         StateGraph<AgentState> graph = new StateGraph<>(AgentState::new);
 
         for (Map<String, Object> node : nodes) {
-            String nodeId = (String) node.get("id");
-            String type = (String) node.get("type");
+            final String nodeId = (String) node.get("id");
+            final String type = (String) node.get("type");
             Map<String, Object> nodeData = (Map<String, Object>) node.getOrDefault("data", new HashMap<>());
             nodeData = new HashMap<>(nodeData); // defensive copy
 
@@ -52,7 +76,9 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                 nodeData.put("_userInput", userInput);
             }
 
+            final String label = (String) nodeData.getOrDefault("label", type);
             final Map<String, Object> finalData = nodeData;
+
             graph.addNode(nodeId, AsyncNodeAction.node_async(state -> {
                 Map<String, Object> data = new HashMap<>(finalData);
                 Map<String, Object> stateMap = state.data();
@@ -67,16 +93,72 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                     }
                 }
 
+                // Notify: node RUNNING
+                if (progressCallback != null) {
+                    Map<String, Object> running = new HashMap<>();
+                    running.put("nodeId", nodeId);
+                    running.put("nodeType", type);
+                    running.put("label", label);
+                    running.put("status", "RUNNING");
+                    running.put("message", progressMessage(type, label));
+                    progressCallback.accept(running);
+                }
+
+                long nodeStart = System.currentTimeMillis();
                 try {
                     ExecutionContext ctx = stateToContext(stateMap);
                     NodeExecutor executor = executorFactory.getExecutor(type);
                     Map<String, Object> output = executor.execute(data, ctx);
+                    long duration = System.currentTimeMillis() - nodeStart;
+
+                    // Build node log
+                    Map<String, Object> log = new HashMap<>();
+                    log.put("nodeId", nodeId);
+                    log.put("nodeType", type);
+                    log.put("status", "SUCCESS");
+                    log.put("output", output);
+                    log.put("durationMs", duration);
+                    nodeLogs.add(log);
+
+                    // Notify: node SUCCESS
+                    if (progressCallback != null) {
+                        Map<String, Object> success = new HashMap<>();
+                        success.put("nodeId", nodeId);
+                        success.put("nodeType", type);
+                        success.put("label", label);
+                        success.put("status", "SUCCESS");
+                        success.put("message", "Completed in " + duration + "ms");
+                        success.put("durationMs", duration);
+                        progressCallback.accept(success);
+                    }
 
                     // Merge output into state
                     Map<String, Object> updated = new HashMap<>(stateMap);
                     updated.put(nodeId, output);
                     return updated;
                 } catch (Exception e) {
+                    long duration = System.currentTimeMillis() - nodeStart;
+
+                    Map<String, Object> log = new HashMap<>();
+                    log.put("nodeId", nodeId);
+                    log.put("nodeType", type);
+                    log.put("status", "FAILED");
+                    log.put("error", e.getMessage());
+                    log.put("durationMs", duration);
+                    nodeLogs.add(log);
+
+                    // Notify: node FAILED
+                    if (progressCallback != null) {
+                        Map<String, Object> failed = new HashMap<>();
+                        failed.put("nodeId", nodeId);
+                        failed.put("nodeType", type);
+                        failed.put("label", label);
+                        failed.put("status", "FAILED");
+                        failed.put("message", "Failed: " + e.getMessage());
+                        failed.put("durationMs", duration);
+                        progressCallback.accept(failed);
+                    }
+
                     throw new RuntimeException("Node execution failed: " + nodeId + " - " + e.getMessage(), e);
                 }
             }));
@@ -108,12 +190,11 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
         var compiled = graph.compile();
         var resultState = compiled.invoke(initialState);
 
-        // Convert result to frontend-compatible format
-        return convertToResult(resultState.orElse(new AgentState(initialState)));
+        // Convert result with collected nodeLogs
+        return convertToResult(resultState.orElse(new AgentState(initialState)), nodeLogs);
     }
 
     private String findEntryNodeId(List<Map<String, Object>> nodes, List<Map<String, Object>> edges) {
-        // Find node with no incoming edges (input node or first node)
         if (edges == null || edges.isEmpty()) {
             return (String) nodes.get(0).get("id");
         }
@@ -175,21 +256,9 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
         return result;
     }
 
-    private Map<String, Object> convertToResult(AgentState state) {
+    private Map<String, Object> convertToResult(AgentState state, List<Map<String, Object>> nodeLogs) {
         Map<String, Object> stateMap = state.data();
         Map<String, Object> result = new HashMap<>();
-        List<Map<String, Object>> nodeLogs = new ArrayList<>();
-
-        // Build node logs from state
-        for (Map.Entry<String, Object> entry : stateMap.entrySet()) {
-            if (entry.getValue() instanceof Map) {
-                Map<String, Object> nodeLog = new HashMap<>();
-                nodeLog.put("nodeId", entry.getKey());
-                nodeLog.put("status", "SUCCESS");
-                nodeLog.put("output", entry.getValue());
-                nodeLogs.add(nodeLog);
-            }
-        }
 
         result.put("nodeLogs", nodeLogs);
 
@@ -206,5 +275,15 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
         }
 
         return result;
+    }
+
+    private String progressMessage(String type, String label) {
+        switch (type) {
+            case "llm": return "Calling LLM (" + label + ")...";
+            case "tts": return "Synthesizing audio (" + label + ")...";
+            case "input": return "Processing user input...";
+            case "output": return "Assembling output...";
+            default: return "Executing " + label + "...";
+        }
     }
 }

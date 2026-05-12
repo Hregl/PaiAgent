@@ -2,7 +2,6 @@ package com.paiagent.engine;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -12,7 +11,6 @@ import java.util.function.Consumer;
  * DAG-based workflow engine using Kahn's topological sort algorithm.
  */
 @Component
-@ConditionalOnProperty(name = "engine.type", havingValue = "dag", matchIfMissing = true)
 public class DagWorkflowEngine implements WorkflowEngine {
 
     private final NodeExecutorFactory executorFactory;

@@ -4,6 +4,8 @@ export type NodeType = 'input' | 'output' | 'llm' | 'tts';
 
 export type LLMProvider = 'deepseek' | 'qwen' | 'chatglm' | 'aiping';
 
+export type EngineType = 'dag' | 'langgraph';
+
 export interface LLMNodeData {
   label: string;
   provider: LLMProvider;

@@ -10,7 +10,7 @@ import {
   addEdge,
   Connection,
 } from 'reactflow';
-import { CustomNodeData, LLMProvider } from '../types/workflow';
+import { CustomNodeData, LLMProvider, EngineType } from '../types/workflow';
 
 interface WorkflowState {
   nodes: Node<CustomNodeData>[];
@@ -18,6 +18,7 @@ interface WorkflowState {
   selectedNodeId: string | null;
   workflowId: string | null;
   workflowName: string;
+  engineType: EngineType;
 
   setNodes: (nodes: Node<CustomNodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
@@ -30,6 +31,7 @@ interface WorkflowState {
   selectNode: (id: string | null) => void;
   setWorkflowId: (id: string | null) => void;
   setWorkflowName: (name: string) => void;
+  setEngineType: (type: EngineType) => void;
   resetWorkflow: () => void;
 }
 
@@ -111,6 +113,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedNodeId: null,
   workflowId: null,
   workflowName: '',
+  engineType: 'dag',
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
@@ -161,6 +164,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setWorkflowId: (id) => set({ workflowId: id }),
   setWorkflowName: (name) => set({ workflowName: name }),
+
+  setEngineType: (type) => set({ engineType: type }),
 
   resetWorkflow: () => {
     const [nodes, edges] = createDefaultNodes();

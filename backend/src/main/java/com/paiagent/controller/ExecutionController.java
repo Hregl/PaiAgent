@@ -1,7 +1,7 @@
 package com.paiagent.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.paiagent.engine.DagWorkflowEngine;
+import com.paiagent.config.EngineSelector;
 import com.paiagent.engine.WorkflowEngine;
 import com.paiagent.model.dto.ApiResponse;
 import com.paiagent.model.dto.ExecutionRequest;
@@ -33,16 +33,16 @@ public class ExecutionController {
 
     private final WorkflowRepository workflowRepository;
     private final ExecutionLogRepository executionLogRepository;
-    private final WorkflowEngine workflowEngine;
+    private final EngineSelector engineSelector;
     private final ObjectMapper objectMapper;
 
     public ExecutionController(WorkflowRepository workflowRepository,
                                ExecutionLogRepository executionLogRepository,
-                               WorkflowEngine workflowEngine,
+                               EngineSelector engineSelector,
                                ObjectMapper objectMapper) {
         this.workflowRepository = workflowRepository;
         this.executionLogRepository = executionLogRepository;
-        this.workflowEngine = workflowEngine;
+        this.engineSelector = engineSelector;
         this.objectMapper = objectMapper;
     }
 
@@ -56,7 +56,8 @@ public class ExecutionController {
 
         long startTime = System.currentTimeMillis();
         try {
-            Map<String, Object> result = workflowEngine.execute(workflow.getDefinition(), request.getInput());
+            WorkflowEngine engine = engineSelector.getActiveEngine();
+            Map<String, Object> result = engine.execute(workflow.getDefinition(), request.getInput());
             long duration = System.currentTimeMillis() - startTime;
 
             String execStatus = (String) result.getOrDefault("status", "SUCCESS");
@@ -155,20 +156,20 @@ public class ExecutionController {
                 return;
             }
 
-            if (!(workflowEngine instanceof DagWorkflowEngine)) {
-                writeSSE(writer, "error", objectMapper.writeValueAsString(Map.of("message", "仅 DAG 引擎支持进度推送")));
+            if (!(engineSelector.getActiveEngine() instanceof WorkflowEngine)) {
+                writeSSE(writer, "error", objectMapper.writeValueAsString(Map.of("message", "引擎不可用")));
                 writer.close();
                 return;
             }
 
             String defJson = workflow.getDefinition();
             String userInput = input;
-            DagWorkflowEngine dagEngine = (DagWorkflowEngine) workflowEngine;
+            WorkflowEngine engine = engineSelector.getActiveEngine();
 
             CompletableFuture.runAsync(() -> {
                 long startTime = System.currentTimeMillis();
                 try {
-                    Map<String, Object> result = dagEngine.executeWithProgress(defJson, userInput, progress -> {
+                    Map<String, Object> result = engine.executeWithProgress(defJson, userInput, progress -> {
                         try {
                             String eventData = objectMapper.writeValueAsString(progress);
                             log.info("SSE progress: nodeId={}, type={}, status={}",
