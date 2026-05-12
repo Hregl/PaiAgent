@@ -1,6 +1,6 @@
 import api from './index';
 import { ApiResponse } from '../types/api';
-import { ExecutionResult } from '../types/workflow';
+import { ExecutionResult, ExecutionHistoryItem } from '../types/workflow';
 
 export const executionApi = {
   execute(workflowId: string, input: string): Promise<ApiResponse<ExecutionResult>> {
@@ -8,5 +8,8 @@ export const executionApi = {
   },
   getResult(executionId: string): Promise<ApiResponse<ExecutionResult>> {
     return api.get(`/executions/${executionId}`);
+  },
+  listExecutions(workflowId: string): Promise<ApiResponse<ExecutionHistoryItem[]>> {
+    return api.get(`/workflows/${workflowId}/executions`);
   },
 };

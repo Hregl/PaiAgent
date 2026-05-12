@@ -14,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -104,6 +105,19 @@ public class ExecutionController {
             return ApiResponse.error(404, "Execution not found");
         }
         return ApiResponse.success(log);
+    }
+
+    /**
+     * List execution history for a workflow (latest 20).
+     */
+    @GetMapping("/workflows/{id}/executions")
+    public ApiResponse<List<ExecutionLog>> listExecutions(@PathVariable String id) {
+        List<ExecutionLog> logs = executionLogRepository.findByWorkflowIdOrderByCreatedAtDesc(id);
+        // Limit to last 20 to avoid huge payloads
+        if (logs.size() > 20) {
+            logs = logs.subList(0, 20);
+        }
+        return ApiResponse.success(logs);
     }
 
     /**

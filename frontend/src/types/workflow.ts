@@ -97,3 +97,14 @@ export interface ProgressEntry {
   message: string;
   durationMs?: number;
 }
+
+export interface ExecutionHistoryItem {
+  id: string;
+  workflowId: string;
+  input: string;
+  output: string; // JSON string, parse to get ExecutionResult
+  status: 'SUCCESS' | 'FAILED';
+  durationMs: number;
+  nodeLogs: string | null;
+  createdAt: string;
+}

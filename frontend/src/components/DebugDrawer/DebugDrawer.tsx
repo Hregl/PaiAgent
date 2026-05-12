@@ -1,8 +1,10 @@
-import { useRef, useState, useCallback } from 'react';
-import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps } from 'antd';
-import { PlayCircleOutlined, PauseCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { useRef, useState, useCallback, useEffect } from 'react';
+import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps, Divider, List } from 'antd';
+import { PlayCircleOutlined, PauseCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined, HistoryOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useDebugStore } from '../../store/debugStore';
 import { useWorkflowStore } from '../../store/workflowStore';
+import { executionApi } from '../../api/execution';
+import { ExecutionHistoryItem, ExecutionResult } from '../../types/workflow';
 
 const { TextArea } = Input;
 
@@ -13,6 +15,57 @@ export default function DebugDrawer() {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
+
+  // Execution history
+  const [history, setHistory] = useState<ExecutionHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [historyResult, setHistoryResult] = useState<ExecutionResult | null>(null);
+
+  const fetchHistory = useCallback(async () => {
+    if (!workflowId) return;
+    setHistoryLoading(true);
+    try {
+      const res = await executionApi.listExecutions(workflowId);
+      if (res.code === 200) {
+        setHistory(res.data);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [workflowId]);
+
+  // Auto-fetch history when drawer opens or workflow changes
+  useEffect(() => {
+    if (isOpen && workflowId) {
+      fetchHistory();
+      setSelectedHistoryId(null);
+      setHistoryResult(null);
+    }
+  }, [isOpen, workflowId, fetchHistory]);
+
+  const viewHistoryDetail = useCallback((item: ExecutionHistoryItem) => {
+    setSelectedHistoryId(item.id);
+    // Parse output JSON to reconstruct ExecutionResult
+    try {
+      const parsedOutput = item.output ? JSON.parse(item.output) : null;
+      setHistoryResult(parsedOutput as ExecutionResult);
+    } catch {
+      setHistoryResult(null);
+    }
+  }, []);
+
+  const formatTime = useCallback((dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    } catch {
+      return dateStr;
+    }
+  }, []);
 
   const toggleAudio = useCallback(() => {
     const audio = audioRef.current;
@@ -262,6 +315,195 @@ export default function DebugDrawer() {
             </Card>
           )}
         </div>
+      )}
+
+      {/* Execution History */}
+      {workflowId && (
+        <>
+          <Divider style={{ marginTop: 16, marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: '#999' }}>
+              <HistoryOutlined style={{ marginRight: 4 }} />
+              执行历史
+            </span>
+          </Divider>
+
+          {historyLoading && (
+            <div style={{ textAlign: 'center', padding: 12 }}>
+              <Spin size="small" />
+            </div>
+          )}
+
+          {!historyLoading && history.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 16, color: '#999', fontSize: 13 }}>
+              暂无执行记录
+            </div>
+          )}
+
+          {!historyLoading && history.length > 0 && (
+            <>
+              <Button
+                size="small"
+                icon={<ReloadOutlined />}
+                onClick={fetchHistory}
+                style={{ marginBottom: 8 }}
+              >
+                刷新
+              </Button>
+
+              <List
+                size="small"
+                dataSource={history}
+                renderItem={(item) => {
+                  const isSelected = selectedHistoryId === item.id;
+                  return (
+                    <>
+                      <Card
+                        size="small"
+                        hoverable
+                        onClick={() => viewHistoryDetail(item)}
+                        style={{
+                          marginBottom: 6,
+                          cursor: 'pointer',
+                          borderColor: isSelected ? '#667eea' : undefined,
+                          background: isSelected ? '#f9f0ff' : undefined,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 12, color: '#999' }}>
+                            <ClockCircleOutlined style={{ marginRight: 4 }} />
+                            {formatTime(item.createdAt)}
+                          </span>
+                          <Tag color={item.status === 'SUCCESS' ? 'success' : 'error'}>
+                            {item.status === 'SUCCESS' ? '成功' : '失败'}
+                          </Tag>
+                        </div>
+                        <div style={{ marginTop: 4, fontSize: 12, color: '#666' }}>
+                          输入: {item.input.length > 60 ? item.input.slice(0, 60) + '...' : item.input}
+                        </div>
+                        <div style={{ marginTop: 2, fontSize: 12, color: '#999' }}>
+                          耗时: {item.durationMs}ms
+                        </div>
+                      </Card>
+
+                      {/* Expanded history detail */}
+                      {isSelected && historyResult && (
+                        <Card size="small" title="历史执行详情" style={{ marginBottom: 8 }}>
+                          <div>
+                            <strong>状态:</strong>{' '}
+                            <span style={{ color: historyResult.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
+                              {historyResult.status === 'SUCCESS' ? '成功' : '失败'}
+                            </span>
+                          </div>
+                          <div>
+                            <strong>耗时:</strong> {historyResult.durationMs}ms
+                          </div>
+
+                          {historyResult.error && (
+                            <Alert type="error" message={historyResult.error} style={{ marginTop: 8 }} showIcon />
+                          )}
+
+                          {historyResult.output?.audioUrl && (
+                            <div style={{ marginTop: 8 }}>
+                              <audio
+                                controls
+                                src={historyResult.output.audioUrl}
+                                style={{ width: '100%', height: 36 }}
+                              />
+                            </div>
+                          )}
+
+                          {historyResult.output?.text && (
+                            <div style={{ marginTop: 8 }}>
+                              <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>文本输出:</div>
+                              <p style={{
+                                whiteSpace: 'pre-wrap',
+                                fontSize: 12,
+                                background: '#fafafa',
+                                padding: 8,
+                                borderRadius: 4,
+                                maxHeight: 150,
+                                overflow: 'auto',
+                              }}>
+                                {historyResult.output.text}
+                              </p>
+                            </div>
+                          )}
+
+                          {historyResult.nodeLogs && historyResult.nodeLogs.length > 0 && (
+                            <Collapse
+                              size="small"
+                              style={{ marginTop: 8 }}
+                              expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
+                              items={historyResult.nodeLogs.map((log) => ({
+                                key: log.nodeId,
+                                label: (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Tag color={log.nodeType === 'input' ? 'blue' : log.nodeType === 'llm' ? 'purple' : log.nodeType === 'tts' ? 'orange' : 'green'} style={{ fontSize: 10 }}>
+                                      {log.nodeType === 'input' ? '输入' : log.nodeType === 'llm' ? 'LLM' : log.nodeType === 'tts' ? 'TTS' : '输出'}
+                                    </Tag>
+                                    <span style={{ fontSize: 12 }}>{log.nodeId}</span>
+                                    <Tag color={log.status === 'SUCCESS' ? 'success' : 'error'} style={{ fontSize: 10 }}>
+                                      {log.status === 'SUCCESS' ? '成功' : '失败'}
+                                    </Tag>
+                                  </span>
+                                ),
+                                children: (
+                                  <div style={{ fontSize: 11 }}>
+                                    <div style={{ marginBottom: 4 }}>
+                                      <strong style={{ color: '#1890ff' }}>输入:</strong>
+                                      <pre style={{
+                                        background: '#f5f5f5',
+                                        padding: 6,
+                                        borderRadius: 3,
+                                        maxHeight: 120,
+                                        overflow: 'auto',
+                                        marginTop: 2,
+                                      }}>
+                                        {JSON.stringify(log.input, null, 2)}
+                                      </pre>
+                                    </div>
+                                    {log.status === 'SUCCESS' && (
+                                      <div>
+                                        <strong style={{ color: '#52c41a' }}>输出:</strong>
+                                        <pre style={{
+                                          background: '#f5f5f5',
+                                          padding: 6,
+                                          borderRadius: 3,
+                                          maxHeight: 120,
+                                          overflow: 'auto',
+                                          marginTop: 2,
+                                        }}>
+                                          {JSON.stringify(log.output, null, 2)}
+                                        </pre>
+                                      </div>
+                                    )}
+                                    {log.error && (
+                                      <div>
+                                        <strong style={{ color: '#ff4d4f' }}>错误:</strong>
+                                        <pre style={{
+                                          background: '#fff2f0',
+                                          padding: 6,
+                                          borderRadius: 3,
+                                          marginTop: 2,
+                                        }}>
+                                          {log.error}
+                                        </pre>
+                                      </div>
+                                    )}
+                                  </div>
+                                ),
+                              }))}
+                            />
+                          )}
+                        </Card>
+                      )}
+                    </>
+                  );
+                }}
+              />
+            </>
+          )}
+        </>
       )}
     </Drawer>
   );
