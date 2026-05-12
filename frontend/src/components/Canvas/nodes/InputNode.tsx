@@ -5,7 +5,7 @@ import { InputNodeData } from '../../../types/workflow';
 function InputNode({ data, selected }: NodeProps<InputNodeData>) {
   return (
     <div className={`custom-node input-node ${selected ? 'selected' : ''}`}>
-      <div>{data.label || 'Input'}</div>
+      <div>{data.label || '输入'}</div>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

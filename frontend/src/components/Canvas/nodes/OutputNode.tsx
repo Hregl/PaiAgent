@@ -6,7 +6,7 @@ function OutputNode({ data, selected }: NodeProps<OutputNodeData>) {
   return (
     <div className={`custom-node output-node ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Top} />
-      <div>{data.label || 'Output'}</div>
+      <div>{data.label || '输出'}</div>
     </div>
   );
 }

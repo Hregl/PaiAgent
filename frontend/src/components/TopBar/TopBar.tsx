@@ -35,12 +35,12 @@ export default function TopBar() {
 
   const handleNew = () => {
     resetWorkflow();
-    message.success('New workflow created');
+    message.success('已创建新工作流');
   };
 
   const handleSave = async () => {
     if (!workflowName.trim()) {
-      message.warning('Please enter workflow name');
+      message.warning('请输入工作流名称');
       return;
     }
     try {
@@ -51,9 +51,9 @@ export default function TopBar() {
         const res = await workflowApi.create({ name: workflowName, definition });
         setWorkflowId(res.data.id);
       }
-      message.success('Saved successfully');
+      message.success('保存成功');
     } catch {
-      message.error('Save failed');
+      message.error('保存失败');
     }
   };
 
@@ -63,7 +63,7 @@ export default function TopBar() {
       setWorkflows(res.data);
       setLoadModalOpen(true);
     } catch {
-      message.error('Failed to load workflows');
+      message.error('加载工作流失败');
     }
   };
 
@@ -75,7 +75,7 @@ export default function TopBar() {
     setNodes(definition.nodes);
     setEdges(definition.edges);
     setLoadModalOpen(false);
-    message.success(`Loaded: ${wf.name}`);
+    message.success(`已加载: ${wf.name}`);
   };
 
   const handleExecute = async () => {
@@ -86,7 +86,7 @@ export default function TopBar() {
     try {
       const res = await executionApi.execute(workflowId, executeInput);
       if (res.code !== 200) {
-        setExecuteError(res.message || 'Execution failed');
+        setExecuteError(res.message || '执行失败');
       } else {
         setExecuteResult(res.data);
       }
@@ -94,7 +94,7 @@ export default function TopBar() {
       const msg =
         (err && typeof err === 'object' && 'message' in err)
           ? String((err as { message: string }).message)
-          : 'Execution failed';
+          : '执行失败';
       setExecuteError(msg);
     } finally {
       setExecuteLoading(false);
@@ -115,7 +115,7 @@ export default function TopBar() {
         <Input
           value={workflowName}
           onChange={(e) => setWorkflowName(e.target.value)}
-          placeholder="Workflow name"
+          placeholder="工作流名称"
           style={{ width: 160 }}
           size="small"
         />
@@ -123,13 +123,13 @@ export default function TopBar() {
       <div className="top-bar-center">
         <Space>
           <Button icon={<PlusOutlined />} onClick={handleNew}>
-            New
+            新建
           </Button>
           <Button icon={<FolderOpenOutlined />} onClick={handleLoad}>
-            Load
+            加载
           </Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
-            Save
+            保存
           </Button>
           <Button
             type="primary"
@@ -138,7 +138,7 @@ export default function TopBar() {
             disabled={!workflowId}
             style={{ background: '#52c41a', borderColor: '#52c41a' }}
           >
-            Run
+            运行
           </Button>
           <Button
             type="primary"
@@ -146,7 +146,7 @@ export default function TopBar() {
             onClick={openDrawer}
             style={{ background: '#333' }}
           >
-            Debug
+            调试
           </Button>
         </Space>
       </div>
@@ -155,19 +155,19 @@ export default function TopBar() {
           <UserOutlined />
           <span>{user?.username || 'admin'}</span>
           <Button type="text" icon={<LogoutOutlined />} onClick={logout}>
-            Logout
+            退出登录
           </Button>
         </Space>
       </div>
 
       <Modal
-        title="Load Workflow"
+        title="加载工作流"
         open={loadModalOpen}
         onCancel={() => setLoadModalOpen(false)}
         footer={null}
       >
         {workflows.length === 0 ? (
-          <p>No workflows found</p>
+          <p>暂无工作流</p>
         ) : (
           <div>
             {workflows.map((wf) => (
@@ -192,7 +192,7 @@ export default function TopBar() {
       </Modal>
 
       <Modal
-        title="Run Workflow"
+        title="运行工作流"
         open={executeModalOpen}
         onCancel={() => setExecuteModalOpen(false)}
         footer={null}
@@ -201,7 +201,7 @@ export default function TopBar() {
         {!workflowId && (
           <Alert
             type="warning"
-            message="Please save the workflow first before executing"
+            message="请先保存工作流再执行"
             style={{ marginBottom: 12 }}
             showIcon
           />
@@ -209,7 +209,7 @@ export default function TopBar() {
         <Input.TextArea
           value={executeInput}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setExecuteInput(e.target.value)}
-          placeholder="Enter input text to send to the workflow..."
+          placeholder="输入要发送到工作流的文本..."
           rows={4}
           style={{ marginBottom: 12 }}
           disabled={executeLoading}
@@ -223,13 +223,13 @@ export default function TopBar() {
           block
           style={{ background: '#52c41a', borderColor: '#52c41a' }}
         >
-          Execute
+          执行
         </Button>
 
         {executeLoading && (
           <div style={{ textAlign: 'center', padding: 40 }}>
             <Spin size="large" />
-            <div style={{ marginTop: 12, color: '#999' }}>Executing workflow...</div>
+            <div style={{ marginTop: 12, color: '#999' }}>正在执行工作流...</div>
           </div>
         )}
 
@@ -241,7 +241,7 @@ export default function TopBar() {
 
         {executeResult && (
           <div style={{ marginTop: 16 }}>
-            <Card size="small" title="Result" style={{ marginBottom: 12 }}>
+            <Card size="small" title="结果" style={{ marginBottom: 12 }}>
               <span style={{ color: executeResult.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f', fontWeight: 600 }}>
                 {executeResult.status}
               </span>
@@ -249,7 +249,7 @@ export default function TopBar() {
             </Card>
 
             {executeResult.output?.text && (
-              <Card size="small" title="Text Output" style={{ marginBottom: 12 }}>
+              <Card size="small" title="文本输出" style={{ marginBottom: 12 }}>
                 <p style={{ whiteSpace: 'pre-wrap', maxHeight: 300, overflowY: 'auto' }}>
                   {executeResult.output.text}
                 </p>
@@ -257,13 +257,13 @@ export default function TopBar() {
             )}
 
             {executeResult.output?.audioUrl && (
-              <Card size="small" title="Audio" style={{ marginBottom: 12 }}>
+              <Card size="small" title="音频" style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <PlayCircleOutlined style={{ fontSize: 20, color: '#667eea' }} />
-                  <span>AI Podcast Audio</span>
+                  <span>AI 播客音频</span>
                 </div>
                 <audio controls style={{ width: '100%' }} src={executeResult.output.audioUrl}>
-                  Your browser does not support audio playback.
+                  您的浏览器不支持音频播放。
                 </audio>
               </Card>
             )}

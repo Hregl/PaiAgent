@@ -38,7 +38,7 @@ export default function DebugDrawer() {
 
   return (
     <Drawer
-      title="Debug Workflow"
+      title="调试工作流"
       placement="right"
       width={420}
       open={isOpen}
@@ -48,7 +48,7 @@ export default function DebugDrawer() {
         <TextArea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Enter test input text..."
+          placeholder="输入测试文本..."
           rows={4}
           style={{ marginBottom: 12 }}
         />
@@ -60,12 +60,12 @@ export default function DebugDrawer() {
           disabled={!workflowId || !input.trim()}
           block
         >
-          Execute
+          执行
         </Button>
         {!workflowId && (
           <Alert
             type="warning"
-            message="Please save workflow first"
+            message="请先保存工作流"
             style={{ marginTop: 8 }}
             showIcon
           />
@@ -76,10 +76,10 @@ export default function DebugDrawer() {
       {progressMessages.length > 0 && (
         <Card size="small" title={
           <span>
-            Execution Status
-            {loading && <Tag color="processing" style={{ marginLeft: 8 }}>Running</Tag>}
-            {!loading && error && <Tag color="error" style={{ marginLeft: 8 }}>Failed</Tag>}
-            {!loading && !error && result && <Tag color="success" style={{ marginLeft: 8 }}>Done</Tag>}
+            执行状态
+            {loading && <Tag color="processing" style={{ marginLeft: 8 }}>运行中</Tag>}
+            {!loading && error && <Tag color="error" style={{ marginLeft: 8 }}>失败</Tag>}
+            {!loading && !error && result && <Tag color="success" style={{ marginLeft: 8 }}>已完成</Tag>}
           </span>
         } style={{ marginTop: 12, marginBottom: 12 }}>
           <Steps
@@ -90,7 +90,7 @@ export default function DebugDrawer() {
               title: (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Tag color={p.nodeType === 'input' ? 'blue' : p.nodeType === 'llm' ? 'purple' : p.nodeType === 'tts' ? 'orange' : 'green'}>
-                    {p.nodeType.toUpperCase()}
+                    {p.nodeType === 'input' ? '输入' : p.nodeType === 'llm' ? 'LLM' : p.nodeType === 'tts' ? 'TTS' : '输出'}
                   </Tag>
                   <span style={{ fontWeight: 500 }}>{p.label}</span>
                 </span>
@@ -115,7 +115,7 @@ export default function DebugDrawer() {
       {loading && progressMessages.length === 0 && (
         <div style={{ textAlign: 'center', padding: 20, marginTop: 12 }}>
           <Spin size="large" />
-          <div style={{ marginTop: 8, color: '#999', fontSize: 13 }}>Starting execution...</div>
+          <div style={{ marginTop: 8, color: '#999', fontSize: 13 }}>正在启动执行...</div>
         </div>
       )}
 
@@ -123,15 +123,15 @@ export default function DebugDrawer() {
 
       {result && (
         <div className="debug-result">
-          <Card size="small" title="Execution Result" style={{ marginBottom: 12 }}>
+          <Card size="small" title="执行结果" style={{ marginBottom: 12 }}>
             <div>
-              <strong>Status:</strong>{' '}
+              <strong>状态:</strong>{' '}
               <span style={{ color: result.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
-                {result.status}
+                {result.status === 'SUCCESS' ? '成功' : '失败'}
               </span>
             </div>
             <div>
-              <strong>Duration:</strong> {result.durationMs}ms
+              <strong>耗时:</strong> {result.durationMs}ms
             </div>
           </Card>
 
@@ -145,10 +145,10 @@ export default function DebugDrawer() {
               title={
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <PlayCircleOutlined style={{ color: '#667eea' }} />
-                  <span>Audio Output</span>
+                  <span>音频输出</span>
                   {audioPlaying && (
                     <Tag color="processing" style={{ marginLeft: 4, fontSize: 11 }}>
-                      Playing
+                      播放中
                     </Tag>
                   )}
                 </span>
@@ -180,19 +180,19 @@ export default function DebugDrawer() {
                   border: audioPlaying ? undefined : 'none',
                 }}
               >
-                {audioPlaying ? 'Pause' : 'Play AI Podcast Audio'}
+                {audioPlaying ? '暂停' : '播放 AI 播客音频'}
               </Button>
             </Card>
           )}
 
           {result.output?.text && (
-            <Card size="small" title="Text Output" style={{ marginBottom: 12 }}>
+            <Card size="small" title="文本输出" style={{ marginBottom: 12 }}>
               <p style={{ whiteSpace: 'pre-wrap' }}>{result.output.text}</p>
             </Card>
           )}
 
           {result.nodeLogs && result.nodeLogs.length > 0 && (
-            <Card size="small" title="Node Execution Detail" style={{ marginBottom: 12 }}>
+            <Card size="small" title="节点执行详情" style={{ marginBottom: 12 }}>
               <Collapse
                 expandIcon={({ isActive }) => <CaretRightOutlined rotate={isActive ? 90 : 0} />}
                 items={result.nodeLogs.map((log) => ({
@@ -200,11 +200,11 @@ export default function DebugDrawer() {
                   label: (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Tag color={log.nodeType === 'input' ? 'blue' : log.nodeType === 'llm' ? 'purple' : log.nodeType === 'tts' ? 'orange' : 'green'}>
-                        {log.nodeType.toUpperCase()}
+                        {log.nodeType === 'input' ? '输入' : log.nodeType === 'llm' ? 'LLM' : log.nodeType === 'tts' ? 'TTS' : '输出'}
                       </Tag>
                       <span style={{ fontWeight: 600 }}>{log.nodeId}</span>
                       <Tag color={log.status === 'SUCCESS' ? 'success' : 'error'}>
-                        {log.status}
+                        {log.status === 'SUCCESS' ? '成功' : '失败'}
                       </Tag>
                       <span style={{ color: '#999', fontSize: 12 }}>{log.durationMs}ms</span>
                     </span>
@@ -212,7 +212,7 @@ export default function DebugDrawer() {
                   children: (
                     <div>
                       <div style={{ marginBottom: 8 }}>
-                        <strong style={{ color: '#1890ff' }}>Input:</strong>
+                        <strong style={{ color: '#1890ff' }}>输入:</strong>
                         <pre style={{
                           background: '#f5f5f5',
                           padding: 8,
@@ -227,7 +227,7 @@ export default function DebugDrawer() {
                       </div>
                       {log.status === 'SUCCESS' && (
                         <div>
-                          <strong style={{ color: '#52c41a' }}>Output:</strong>
+                          <strong style={{ color: '#52c41a' }}>输出:</strong>
                           <pre style={{
                             background: '#f5f5f5',
                             padding: 8,
@@ -243,7 +243,7 @@ export default function DebugDrawer() {
                       )}
                       {log.error && (
                         <div>
-                          <strong style={{ color: '#ff4d4f' }}>Error:</strong>
+                          <strong style={{ color: '#ff4d4f' }}>错误:</strong>
                           <pre style={{
                             background: '#fff2f0',
                             padding: 8,

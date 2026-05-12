@@ -13,10 +13,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(values.username, values.password);
-      message.success('Login successful');
+      message.success('登录成功');
       navigate('/');
     } catch {
-      message.error('Invalid username or password');
+      message.error('用户名或密码错误');
     } finally {
       setLoading(false);
     }
@@ -27,15 +27,15 @@ export default function LoginPage() {
       <div className="login-card">
         <h1 className="login-title">PaiAgent</h1>
         <Form onFinish={onFinish} size="large">
-          <Form.Item name="username" rules={[{ required: true, message: 'Please enter username' }]}>
-            <Input prefix={<UserOutlined />} placeholder="Username" />
+          <Form.Item name="username" rules={[{ required: true, message: '请输入用户名' }]}>
+            <Input prefix={<UserOutlined />} placeholder="用户名" />
           </Form.Item>
-          <Form.Item name="password" rules={[{ required: true, message: 'Please enter password' }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="Password" />
+          <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
+            <Input.Password prefix={<LockOutlined />} placeholder="密码" />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading} block>
-              Login
+              登录
             </Button>
           </Form.Item>
         </Form>

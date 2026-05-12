@@ -6,7 +6,7 @@ function ToolNode({ data, selected }: NodeProps<TTSNodeData>) {
   return (
     <div className={`custom-node tts-node ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Top} />
-      <div>{data.label || 'Tool'}</div>
+      <div>{data.label || '工具'}</div>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

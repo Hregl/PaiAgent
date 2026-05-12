@@ -43,7 +43,7 @@ export default function ConfigPanel() {
   const handleSave = () => {
     const values = form.getFieldsValue();
     updateNodeData(selectedNode.id, values);
-    message.success('Configuration saved');
+    message.success('配置已保存');
   };
 
   const renderForm = () => {
@@ -51,25 +51,25 @@ export default function ConfigPanel() {
       case 'llm':
         return (
           <>
-            <Form.Item label="Provider" name="provider">
+            <Form.Item label="提供商" name="provider">
               <Input disabled />
             </Form.Item>
-            <Form.Item label="API Base URL" name="apiBaseUrl">
-              <Input placeholder="e.g. https://api.deepseek.com/v1" />
+            <Form.Item label="API 地址" name="apiBaseUrl">
+              <Input placeholder="例如: https://api.deepseek.com" />
             </Form.Item>
-            <Form.Item label="API Key" name="apiKey">
+            <Form.Item label="API 密钥" name="apiKey">
               <Input.Password placeholder="sk-xxxxxxxx" />
             </Form.Item>
-            <Form.Item label="Model" name="model">
-              <Input placeholder="e.g. deepseek-chat, qwen-turbo" />
+            <Form.Item label="模型" name="model">
+              <Input placeholder="例如: deepseek-chat, qwen-turbo" />
             </Form.Item>
-            <Form.Item label="Prompt" name="prompt">
-              <TextArea rows={4} placeholder="Use {{nodeId.output}} to reference" />
+            <Form.Item label="提示词" name="prompt">
+              <TextArea rows={4} placeholder="使用 {{nodeId.output}} 引用上游输出" />
             </Form.Item>
             <Form.Item label="Temperature" name="temperature">
               <InputNumber min={0} max={2} step={0.1} style={{ width: '100%' }} />
             </Form.Item>
-            <Form.Item label="Max Tokens" name="maxTokens">
+            <Form.Item label="最大 Token 数" name="maxTokens">
               <InputNumber min={1} max={8192} style={{ width: '100%' }} />
             </Form.Item>
           </>
@@ -77,10 +77,10 @@ export default function ConfigPanel() {
       case 'tts':
         return (
           <>
-            <Form.Item label="API Key" name="apiKey">
+            <Form.Item label="API 密钥" name="apiKey">
               <Input.Password placeholder="sk-xxxxxxxx" />
             </Form.Item>
-            <Form.Item label="Model" name="model">
+            <Form.Item label="模型" name="model">
               <Input placeholder="qwen3-tts-flash" />
             </Form.Item>
 
@@ -102,9 +102,9 @@ export default function ConfigPanel() {
                       }}
                     >
                       <Form.Item
-                        label="Parameter Name"
+                        label="参数名"
                         name={[name, 'paramName']}
-                        rules={[{ required: true, message: 'Required' }]}
+                        rules={[{ required: true, message: '必填' }]}
                         style={{ marginBottom: 8 }}
                       >
                         <Select>
@@ -114,14 +114,14 @@ export default function ConfigPanel() {
                         </Select>
                       </Form.Item>
                       <Form.Item
-                        label="Parameter Type"
+                        label="参数类型"
                         name={[name, 'paramType']}
                         rules={[{ required: true }]}
                         style={{ marginBottom: 8 }}
                       >
                         <Select>
-                          <Select.Option value="input">Input</Select.Option>
-                          <Select.Option value="reference">Reference</Select.Option>
+                          <Select.Option value="input">输入</Select.Option>
+                          <Select.Option value="reference">引用</Select.Option>
                         </Select>
                       </Form.Item>
                       <Form.Item
@@ -138,7 +138,7 @@ export default function ConfigPanel() {
                           if (paramType === 'input') {
                             if (paramName === 'voice') {
                               return (
-                                <Form.Item label="Value" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                                <Form.Item label="值" name={[name, 'value']} style={{ marginBottom: 0 }}>
                                   <Select>
                                     <Select.Option value="Cherry">Cherry</Select.Option>
                                     <Select.Option value="Serena">Serena</Select.Option>
@@ -149,7 +149,7 @@ export default function ConfigPanel() {
                             }
                             if (paramName === 'language_type') {
                               return (
-                                <Form.Item label="Value" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                                <Form.Item label="值" name={[name, 'value']} style={{ marginBottom: 0 }}>
                                   <Select>
                                     <Select.Option value="Auto">Auto</Select.Option>
                                   </Select>
@@ -157,15 +157,15 @@ export default function ConfigPanel() {
                               );
                             }
                             return (
-                              <Form.Item label="Value" name={[name, 'value']} style={{ marginBottom: 0 }}>
-                                <TextArea rows={2} placeholder="Enter text to synthesize..." />
+                              <Form.Item label="值" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                                <TextArea rows={2} placeholder="输入要合成的文本..." />
                               </Form.Item>
                             );
                           }
                           return (
-                            <Form.Item label="Reference" name={[name, 'value']} style={{ marginBottom: 0 }}>
+                            <Form.Item label="引用" name={[name, 'value']} style={{ marginBottom: 0 }}>
                               {upstreamRefs.length > 0 ? (
-                                <Select placeholder="Select upstream node..." allowClear>
+                                <Select placeholder="选择上游节点..." allowClear>
                                   {upstreamRefs.map((ref) => (
                                     <Select.Option key={ref.value} value={ref.value}>
                                       {ref.label}
@@ -173,7 +173,7 @@ export default function ConfigPanel() {
                                   ))}
                                 </Select>
                               ) : (
-                                <Input placeholder="e.g. node_1.output" />
+                                <Input placeholder="例如: node_1.output" />
                               )}
                             </Form.Item>
                           );
@@ -195,7 +195,7 @@ export default function ConfigPanel() {
                     block
                     icon={<PlusOutlined />}
                   >
-                    Add Input
+                  添加参数
                   </Button>
                 </>
               )}
@@ -205,16 +205,16 @@ export default function ConfigPanel() {
       case 'input':
         return (
           <>
-            <Form.Item label="Variable Name" name="variableName">
+            <Form.Item label="变量名" name="variableName">
               <Input placeholder="output" />
             </Form.Item>
-            <Form.Item label="Variable Type" name="variableType">
+            <Form.Item label="变量类型" name="variableType">
               <Input disabled value="String" />
             </Form.Item>
-            <Form.Item label="Description" name="description">
+            <Form.Item label="描述" name="description">
               <Input placeholder="用户本轮的输入内容" />
             </Form.Item>
-            <Form.Item label="Required" name="required" valuePropName="checked">
+            <Form.Item label="必填" name="required" valuePropName="checked">
               <Checkbox />
             </Form.Item>
           </>
@@ -240,22 +240,22 @@ export default function ConfigPanel() {
                       }}
                     >
                       <Form.Item
-                        label="Parameter Name"
+                        label="参数名"
                         name={[name, 'paramName']}
-                        rules={[{ required: true, message: 'Required' }]}
+                        rules={[{ required: true, message: '必填' }]}
                         style={{ marginBottom: 8 }}
                       >
-                        <Input placeholder="e.g. text, audioUrl" />
+                        <Input placeholder="例如: text, audioUrl" />
                       </Form.Item>
                       <Form.Item
-                        label="Parameter Type"
+                        label="参数类型"
                         name={[name, 'paramType']}
                         rules={[{ required: true }]}
                         style={{ marginBottom: 8 }}
                       >
                         <Select>
-                          <Select.Option value="input">Input</Select.Option>
-                          <Select.Option value="reference">Reference</Select.Option>
+                          <Select.Option value="input">输入</Select.Option>
+                          <Select.Option value="reference">引用</Select.Option>
                         </Select>
                       </Form.Item>
                       <Form.Item
@@ -266,11 +266,11 @@ export default function ConfigPanel() {
                       >
                         {({ getFieldValue }) => {
                           const paramType = getFieldValue(['outputs', name, 'paramType']);
-                          const label = paramType === 'reference' ? 'Node Reference' : 'Value';
+                          const label = paramType === 'reference' ? '节点引用' : '值';
                           const placeholder =
                             paramType === 'reference'
-                              ? 'e.g. llm_2.output'
-                              : 'Manual input value';
+                              ? '例如: llm_2.output'
+                              : '手动输入值';
                           return (
                             <Form.Item
                               label={label}
@@ -298,7 +298,7 @@ export default function ConfigPanel() {
                     block
                     icon={<PlusOutlined />}
                   >
-                    Add Output
+                    添加输出
                   </Button>
                 </>
               )}
@@ -309,7 +309,7 @@ export default function ConfigPanel() {
             </Divider>
             <Form.Item
               name="responseTemplate"
-              extra="Usage: Use the {{paramName}} format to reference the above output configuration parameters."
+              extra="用法: 使用 {{paramName}} 格式引用上述输出配置参数"
             >
               <TextArea
                 rows={4}
@@ -325,25 +325,25 @@ export default function ConfigPanel() {
 
   return (
     <div>
-      <h3 style={{ marginBottom: 16 }}>Node Config</h3>
+      <h3 style={{ marginBottom: 16 }}>节点配置</h3>
       <Divider />
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, color: '#999' }}>Node ID</div>
+        <div style={{ fontSize: 12, color: '#999' }}>节点 ID</div>
         <div style={{ fontWeight: 600 }}>{selectedNode.id}</div>
       </div>
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 12, color: '#999' }}>Node Type</div>
+        <div style={{ fontSize: 12, color: '#999' }}>节点类型</div>
         <div style={{ fontWeight: 600 }}>{selectedNode.type}</div>
       </div>
       <Divider />
       <Form form={form} layout="vertical" size="small">
-        <Form.Item label="Label" name="label">
+        <Form.Item label="标签" name="label">
           <Input />
         </Form.Item>
         {renderForm()}
       </Form>
       <Button type="primary" block onClick={handleSave}>
-        Save Config
+        保存配置
       </Button>
     </div>
   );

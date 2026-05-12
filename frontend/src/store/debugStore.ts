@@ -67,7 +67,7 @@ export const useDebugStore = create<DebugState>((set, get) => ({
 
     es.addEventListener('error', (event: Event & { data?: string }) => {
       es.close();
-      let message = 'Execution failed';
+      let message = '执行失败';
       try {
         if (event.data) {
           const parsed = JSON.parse(event.data);
@@ -82,7 +82,7 @@ export const useDebugStore = create<DebugState>((set, get) => ({
     // Fallback onerror for network errors
     es.onerror = () => {
       if (!get().result && !get().error) {
-        set({ error: 'Connection lost during execution', loading: false, eventSource: null });
+        set({ error: '执行期间连接断开', loading: false, eventSource: null });
       }
       es.close();
     };

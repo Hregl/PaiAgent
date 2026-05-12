@@ -27,10 +27,10 @@ export default function Sidebar() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 16, marginBottom: 16, color: '#333' }}>Node Library</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 16, color: '#333' }}>节点库</h3>
 
       <div className="sidebar-section">
-        <div className="sidebar-section-title">🧠 LLM Nodes</div>
+        <div className="sidebar-section-title">🧠 LLM 节点</div>
         {llmNodes.map((node) => (
           <div
             key={node.subtype}
@@ -47,7 +47,7 @@ export default function Sidebar() {
       </div>
 
       <div className="sidebar-section">
-        <div className="sidebar-section-title">🔧 Tool Nodes</div>
+        <div className="sidebar-section-title">🔧 工具节点</div>
         {toolNodes.map((node) => (
           <div
             key={node.subtype}
@@ -63,7 +63,7 @@ export default function Sidebar() {
         ))}
       </div>
 
-      <div className="sidebar-hint">💡 Drag nodes to canvas</div>
+      <div className="sidebar-hint">💡 拖拽节点到画布</div>
     </div>
   );
 }

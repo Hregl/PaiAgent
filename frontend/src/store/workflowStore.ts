@@ -45,7 +45,7 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
     id: inputId,
     type: 'input',
     position: { x: 80, y: 100 },
-    data: { label: 'Input', variableName: 'output', variableType: 'String', description: '用户本轮的输入内容', required: true },
+    data: { label: '输入', variableName: 'output', variableType: 'String', description: '用户本轮的输入内容', required: true },
   };
 
   const llmNode: Node<CustomNodeData> = {
@@ -85,7 +85,7 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
     type: 'output',
     position: { x: 860, y: 100 },
     data: {
-      label: 'Output',
+      label: '输出',
       outputs: [
         { paramName: 'text', paramType: 'reference' as const, value: `${llmId}.output` },
         { paramName: 'audioUrl', paramType: 'reference' as const, value: `${ttsId}.audioUrl` },
