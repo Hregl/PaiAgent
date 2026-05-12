@@ -178,6 +178,56 @@ html, body, #root {
   border-color: #722ed1;
 }
 
+.custom-node.condition-node {
+  border-color: #faad14;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #fffbe6 0%, #fff 100%);
+  min-width: 120px;
+  padding: 12px 20px;
+}
+
+.condition-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.condition-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.condition-operator {
+  font-size: 11px;
+  color: #faad14;
+  background: #fffbe6;
+  padding: 1px 8px;
+  border-radius: 10px;
+  border: 1px solid #ffe58f;
+}
+
+.condition-branch-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 2px 12px 0;
+  margin-top: 4px;
+}
+
+.branch-true {
+  color: #52c41a;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.branch-false {
+  color: #ff4d4f;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 /* Login */
 .login-container {
   width: 100vw;

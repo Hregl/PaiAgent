@@ -32,6 +32,13 @@ public class DagWorkflowEngine implements WorkflowEngine {
             throw new IllegalArgumentException("Workflow has no nodes");
         }
 
+        // Reject condition nodes — only supported by LangGraph engine
+        for (Map<String, Object> node : nodes) {
+            if ("condition".equals(node.get("type"))) {
+                throw new IllegalArgumentException("判断节点仅在 LangGraph 引擎下可用，请切换到 LangGraph 引擎后重试");
+            }
+        }
+
         Map<String, Map<String, Object>> nodeMap = new HashMap<>();
         Map<String, List<String>> adjacency = new HashMap<>();
         Map<String, Integer> inDegree = new HashMap<>();
@@ -127,6 +134,13 @@ public class DagWorkflowEngine implements WorkflowEngine {
 
         if (nodes == null || nodes.isEmpty()) {
             throw new IllegalArgumentException("Workflow has no nodes");
+        }
+
+        // Reject condition nodes — only supported by LangGraph engine
+        for (Map<String, Object> node : nodes) {
+            if ("condition".equals(node.get("type"))) {
+                throw new IllegalArgumentException("判断节点仅在 LangGraph 引擎下可用，请切换到 LangGraph 引擎后重试");
+            }
         }
 
         Map<String, Map<String, Object>> nodeMap = new HashMap<>();

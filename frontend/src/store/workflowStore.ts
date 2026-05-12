@@ -113,7 +113,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedNodeId: null,
   workflowId: null,
   workflowName: '',
-  engineType: 'dag',
+  engineType: 'langgraph',
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
@@ -137,7 +137,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onConnect: (connection: Connection) => {
-    set({ edges: addEdge(connection, get().edges) });
+    // Preserve branch label from condition node source handles
+    const extraData: Record<string, string> = {};
+    if (connection.sourceHandle) {
+      extraData.branch = connection.sourceHandle;
+    }
+    const edge = { ...connection, ...extraData };
+    set({ edges: addEdge(edge, get().edges) });
   },
 
   addNode: (node) => {

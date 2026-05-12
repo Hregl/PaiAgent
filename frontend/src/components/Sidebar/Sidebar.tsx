@@ -1,4 +1,5 @@
 import { DragEvent } from 'react';
+import { useWorkflowStore } from '../../store/workflowStore';
 
 interface NodeItemConfig {
   type: string;
@@ -19,7 +20,13 @@ const toolNodes: NodeItemConfig[] = [
   { type: 'tts', subtype: 'tts', label: '超拟人音频合成', icon: '🎙️', color: '#f9f0ff' },
 ];
 
+const conditionNode: NodeItemConfig = {
+  type: 'condition', subtype: 'condition', label: '判断分支', icon: '⑂', color: '#fff7e6',
+};
+
 export default function Sidebar() {
+  const engineType = useWorkflowStore((s) => s.engineType);
+
   const onDragStart = (event: DragEvent, nodeConfig: NodeItemConfig) => {
     event.dataTransfer.setData('application/paiagent-node', JSON.stringify(nodeConfig));
     event.dataTransfer.effectAllowed = 'move';
@@ -61,6 +68,25 @@ export default function Sidebar() {
             <span>{node.label}</span>
           </div>
         ))}
+      </div>
+
+      <div className="sidebar-section">
+        <div className="sidebar-section-title">🔀 控制流</div>
+        {engineType === 'dag' && (
+          <div style={{ fontSize: 11, color: '#faad14', marginBottom: 8, padding: '4px 8px', background: '#fffbe6', borderRadius: 4 }}>
+            ⚠ 判断节点仅在 LangGraph 引擎下可执行
+          </div>
+        )}
+        <div
+          className="node-item"
+          draggable
+          onDragStart={(e) => onDragStart(e, conditionNode)}
+        >
+          <div className="node-item-icon" style={{ background: conditionNode.color }}>
+            {conditionNode.icon}
+          </div>
+          <span>{conditionNode.label}</span>
+        </div>
       </div>
 
       <div className="sidebar-hint">💡 拖拽节点到画布</div>

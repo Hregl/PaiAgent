@@ -124,6 +124,11 @@ export default function TopBar() {
   };
 
   const openExecuteModal = () => {
+    // DAG engine cannot execute workflows with condition nodes
+    if (engineType === 'dag' && nodes.some((n) => n.type === 'condition')) {
+      message.warning('当前工作流包含判断节点，DAG 引擎不支持判断节点执行，请切换到 LangGraph 引擎');
+      return;
+    }
     setExecuteInput('');
     setExecuteResult(null);
     setExecuteError(null);

@@ -3,6 +3,7 @@ package com.paiagent.engine;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bsc.langgraph4j.StateGraph;
+import org.bsc.langgraph4j.action.AsyncEdgeAction;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.state.AgentState;
 import org.springframework.stereotype.Component;
@@ -166,21 +167,64 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
             }));
         }
 
-        // Add edges
+        // Collect condition node IDs for special edge handling
+        Set<String> conditionNodeIds = new HashSet<>();
+        for (Map<String, Object> node : nodes) {
+            if ("condition".equals(node.get("type"))) {
+                conditionNodeIds.add((String) node.get("id"));
+            }
+        }
+
+        // Add edges — condition nodes use addConditionalEdges, others use addEdge
         if (edges != null) {
+            // Group condition edges by source
+            Map<String, Map<String, String>> conditionPathMaps = new HashMap<>();
             for (Map<String, Object> edge : edges) {
                 String source = (String) edge.get("source");
                 String target = (String) edge.get("target");
-                graph.addEdge(source, target);
+                if (conditionNodeIds.contains(source)) {
+                    String branch = (String) edge.getOrDefault("branch", "true");
+                    conditionPathMaps.computeIfAbsent(source, k -> new LinkedHashMap<>()).put(branch, target);
+                } else {
+                    graph.addEdge(source, target);
+                }
+            }
+
+            // Register conditional edges for each condition node
+            for (Map.Entry<String, Map<String, String>> entry : conditionPathMaps.entrySet()) {
+                String condNodeId = entry.getKey();
+                Map<String, String> pathMap = entry.getValue();
+                // Ensure both "true" and "false" have fallback targets
+                if (!pathMap.containsKey("true")) {
+                    pathMap.put("true", StateGraph.END);
+                }
+                if (!pathMap.containsKey("false")) {
+                    pathMap.put("false", StateGraph.END);
+                }
+                log.info("Condition node {} pathMap: {}", condNodeId, pathMap);
+
+                AsyncEdgeAction<AgentState> conditionAction = state -> {
+                    Map<String, Object> data = state.data();
+                    Object condOutput = data.get(condNodeId);
+                    if (condOutput instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> outputMap = (Map<String, Object>) condOutput;
+                        String branch = (String) outputMap.getOrDefault("branch", "false");
+                        return java.util.concurrent.CompletableFuture.completedFuture(branch);
+                    }
+                    return java.util.concurrent.CompletableFuture.completedFuture("false");
+                };
+                graph.addConditionalEdges(condNodeId, conditionAction, pathMap);
             }
         }
 
         // Set entry point
         graph.addEdge(StateGraph.START, entryNodeId);
 
-        // Set finish points (output nodes connect to END)
+        // Set finish points (output nodes connect to END; condition nodes are skipped)
         for (Map<String, Object> node : nodes) {
-            if ("output".equals(node.get("type"))) {
+            String nodeType = (String) node.get("type");
+            if ("output".equals(nodeType)) {
                 graph.addEdge((String) node.get("id"), StateGraph.END);
             }
         }
@@ -303,6 +347,7 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
             case "tts": return "Synthesizing audio (" + label + ")...";
             case "input": return "Processing user input...";
             case "output": return "Assembling output...";
+            case "condition": return "Evaluating condition (" + label + ")...";
             default: return "Executing " + label + "...";
         }
     }

@@ -11,11 +11,13 @@ public class NodeExecutorFactory {
 
     private final Map<String, NodeExecutor> executors = new HashMap<>();
 
-    public NodeExecutorFactory(LLMNodeExecutor llmExecutor, TTSNodeExecutor ttsExecutor) {
+    public NodeExecutorFactory(LLMNodeExecutor llmExecutor, TTSNodeExecutor ttsExecutor,
+                              ConditionNodeExecutor conditionExecutor) {
         executors.put("input", new InputNodeExecutor());
         executors.put("output", new OutputNodeExecutor());
         executors.put("llm", llmExecutor);
         executors.put("tts", ttsExecutor);
+        executors.put("condition", conditionExecutor);
     }
 
     public NodeExecutor getExecutor(String nodeType) {

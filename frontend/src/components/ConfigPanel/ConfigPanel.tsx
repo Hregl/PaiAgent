@@ -28,6 +28,9 @@ export default function ConfigPanel() {
           const vn = ('variableName' in data) ? (data as { variableName: string }).variableName : 'output';
           return [{ label: `${n.id} → ${vn}`, value: `${n.id}.${vn}` }];
         }
+        if (n.type === 'condition') {
+          return [{ label: `${n.id} → branch`, value: `${n.id}.branch` }];
+        }
         return [{ label: `${n.id} → output`, value: `${n.id}.output` }];
       });
   }, [selectedNode, nodes, edges]);
@@ -315,6 +318,50 @@ export default function ConfigPanel() {
                 rows={4}
                 placeholder={`### Answer\n\n{{text}}\n\n### Audio\n\n{{audioUrl}}`}
               />
+            </Form.Item>
+          </>
+        );
+      case 'condition':
+        return (
+          <>
+            <Form.Item label="左侧引用" name="leftRef" extra="引用上游节点输出进行比较">
+              {upstreamRefs.length > 0 ? (
+                <Select placeholder="选择上游节点..." allowClear>
+                  {upstreamRefs.map((ref) => (
+                    <Select.Option key={ref.value} value={ref.value}>
+                      {ref.label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              ) : (
+                <Input placeholder="例如: llm_2.output" />
+              )}
+            </Form.Item>
+            <Form.Item label="运算符" name="operator" rules={[{ required: true }]}>
+              <Select>
+                <Select.Option value="equals">等于 (==)</Select.Option>
+                <Select.Option value="not_equals">不等于 (!=)</Select.Option>
+                <Select.Option value="contains">包含</Select.Option>
+                <Select.Option value="starts_with">开头是</Select.Option>
+                <Select.Option value="is_empty">为空</Select.Option>
+                <Select.Option value="is_not_empty">非空</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, cur) => prev.operator !== cur.operator}
+            >
+              {({ getFieldValue }) => {
+                const operator = getFieldValue('operator') || 'contains';
+                if (operator === 'is_empty' || operator === 'is_not_empty') {
+                  return null;
+                }
+                return (
+                  <Form.Item label="右侧值" name="rightValue" extra="与左侧引用比较的值">
+                    <Input placeholder="输入比较值..." />
+                  </Form.Item>
+                );
+              }}
             </Form.Item>
           </>
         );

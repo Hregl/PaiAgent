@@ -14,6 +14,7 @@ import InputNode from './nodes/InputNode';
 import OutputNode from './nodes/OutputNode';
 import LLMNode from './nodes/LLMNode';
 import ToolNode from './nodes/ToolNode';
+import ConditionNode from './nodes/ConditionNode';
 import { CustomNodeData, LLMProvider } from '../../types/workflow';
 
 const nodeTypes: NodeTypes = {
@@ -21,6 +22,7 @@ const nodeTypes: NodeTypes = {
   output: OutputNode,
   llm: LLMNode,
   tts: ToolNode,
+  condition: ConditionNode,
 };
 
 let nodeId = 0;
@@ -158,6 +160,13 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
         label: 'Output',
         outputs: [{ paramName: 'output', paramType: 'reference' as const, value: '' }],
         responseTemplate: '{{output}}',
+      };
+    case 'condition':
+      return {
+        label: '判断',
+        leftRef: '',
+        operator: 'contains',
+        rightValue: '',
       };
     default:
       return { label: config.label };

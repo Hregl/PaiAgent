@@ -1,6 +1,6 @@
 import { Node, Edge } from 'reactflow';
 
-export type NodeType = 'input' | 'output' | 'llm' | 'tts';
+export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition';
 
 export type LLMProvider = 'deepseek' | 'qwen' | 'chatglm' | 'aiping';
 
@@ -50,7 +50,16 @@ export interface OutputNodeData {
   responseTemplate: string;
 }
 
-export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData;
+export type ConditionOperator = 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'is_empty' | 'is_not_empty';
+
+export interface ConditionNodeData {
+  label: string;
+  leftRef: string;
+  operator: ConditionOperator;
+  rightValue: string;
+}
+
+export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData | ConditionNodeData;
 
 export type WorkflowNode = Node<CustomNodeData>;
 export type WorkflowEdge = Edge;
