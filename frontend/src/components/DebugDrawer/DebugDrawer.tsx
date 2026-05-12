@@ -1,5 +1,6 @@
+import { useRef, useState, useCallback } from 'react';
 import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps } from 'antd';
-import { PlayCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, PauseCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useDebugStore } from '../../store/debugStore';
 import { useWorkflowStore } from '../../store/workflowStore';
 
@@ -9,6 +10,25 @@ export default function DebugDrawer() {
   const { isOpen, closeDrawer, input, setInput, result, progressMessages, loading, error, execute } =
     useDebugStore();
   const workflowId = useWorkflowStore((s) => s.workflowId);
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+
+  const toggleAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      audio.play();
+      setAudioPlaying(true);
+    } else {
+      audio.pause();
+      setAudioPlaying(false);
+    }
+  }, []);
+
+  const onAudioEnded = useCallback(() => setAudioPlaying(false), []);
+  const onAudioPause = useCallback(() => setAudioPlaying(false), []);
+  const onAudioPlay = useCallback(() => setAudioPlaying(true), []);
 
   const handleExecute = () => {
     if (!workflowId) return;
@@ -52,39 +72,50 @@ export default function DebugDrawer() {
         )}
       </div>
 
-      {loading && (
-        <div style={{ marginTop: 12 }}>
-          {progressMessages.length > 0 ? (
-            <Steps
-              direction="vertical"
-              size="small"
-              current={progressMessages.length - 1}
-              items={progressMessages.map((p) => ({
-                title: (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Tag color={p.nodeType === 'input' ? 'blue' : p.nodeType === 'llm' ? 'purple' : p.nodeType === 'tts' ? 'orange' : 'green'}>
-                      {p.nodeType.toUpperCase()}
-                    </Tag>
-                    <span style={{ fontWeight: 500 }}>{p.label}</span>
-                  </span>
-                ),
-                description: (
-                  <span style={{ color: p.status === 'RUNNING' ? '#1890ff' : p.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
-                    {p.status === 'RUNNING' && <LoadingOutlined style={{ marginRight: 4 }} />}
-                    {p.status === 'SUCCESS' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
-                    {p.status === 'FAILED' && <CloseCircleOutlined style={{ marginRight: 4 }} />}
-                    {p.message}
-                  </span>
-                ),
-                status: p.status === 'RUNNING' ? 'process' : p.status === 'SUCCESS' ? 'finish' : 'error',
-              }))}
-            />
-          ) : (
-            <div style={{ textAlign: 'center', padding: 20 }}>
-              <Spin size="large" />
-              <div style={{ marginTop: 8, color: '#999', fontSize: 13 }}>Starting execution...</div>
-            </div>
-          )}
+      {/* Running status — always visible when there are progress messages */}
+      {progressMessages.length > 0 && (
+        <Card size="small" title={
+          <span>
+            Execution Status
+            {loading && <Tag color="processing" style={{ marginLeft: 8 }}>Running</Tag>}
+            {!loading && error && <Tag color="error" style={{ marginLeft: 8 }}>Failed</Tag>}
+            {!loading && !error && result && <Tag color="success" style={{ marginLeft: 8 }}>Done</Tag>}
+          </span>
+        } style={{ marginTop: 12, marginBottom: 12 }}>
+          <Steps
+            direction="vertical"
+            size="small"
+            current={progressMessages.length - 1}
+            items={progressMessages.map((p) => ({
+              title: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Tag color={p.nodeType === 'input' ? 'blue' : p.nodeType === 'llm' ? 'purple' : p.nodeType === 'tts' ? 'orange' : 'green'}>
+                    {p.nodeType.toUpperCase()}
+                  </Tag>
+                  <span style={{ fontWeight: 500 }}>{p.label}</span>
+                </span>
+              ),
+              description: (
+                <span style={{ color: p.status === 'RUNNING' ? '#1890ff' : p.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
+                  {p.status === 'RUNNING' && <LoadingOutlined style={{ marginRight: 4 }} />}
+                  {p.status === 'SUCCESS' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
+                  {p.status === 'FAILED' && <CloseCircleOutlined style={{ marginRight: 4 }} />}
+                  {p.message}
+                  {p.durationMs != null && p.status !== 'RUNNING' && (
+                    <span style={{ color: '#999', marginLeft: 4 }}>({p.durationMs}ms)</span>
+                  )}
+                </span>
+              ),
+              status: p.status === 'RUNNING' ? 'process' : p.status === 'SUCCESS' ? 'finish' : 'error',
+            }))}
+          />
+        </Card>
+      )}
+
+      {loading && progressMessages.length === 0 && (
+        <div style={{ textAlign: 'center', padding: 20, marginTop: 12 }}>
+          <Spin size="large" />
+          <div style={{ marginTop: 8, color: '#999', fontSize: 13 }}>Starting execution...</div>
         </div>
       )}
 
@@ -108,21 +139,55 @@ export default function DebugDrawer() {
             <Alert type="error" message={result.error} style={{ marginBottom: 12 }} showIcon />
           )}
 
-          {result.output?.text && (
-            <Card size="small" title="Text Output" style={{ marginBottom: 12 }}>
-              <p style={{ whiteSpace: 'pre-wrap' }}>{result.output.text}</p>
+          {result.output?.audioUrl && (
+            <Card
+              size="small"
+              title={
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <PlayCircleOutlined style={{ color: '#667eea' }} />
+                  <span>Audio Output</span>
+                  {audioPlaying && (
+                    <Tag color="processing" style={{ marginLeft: 4, fontSize: 11 }}>
+                      Playing
+                    </Tag>
+                  )}
+                </span>
+              }
+              style={{ marginBottom: 12, borderColor: audioPlaying ? '#667eea' : undefined }}
+            >
+              <audio
+                ref={audioRef}
+                src={result.output.audioUrl}
+                onEnded={onAudioEnded}
+                onPause={onAudioPause}
+                onPlay={onAudioPlay}
+                style={{ display: 'none' }}
+              />
+              <Button
+                type={audioPlaying ? 'default' : 'primary'}
+                icon={audioPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                onClick={toggleAudio}
+                size="large"
+                block
+                style={{
+                  height: 48,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  background: audioPlaying
+                    ? undefined
+                    : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  border: audioPlaying ? undefined : 'none',
+                }}
+              >
+                {audioPlaying ? 'Pause' : 'Play AI Podcast Audio'}
+              </Button>
             </Card>
           )}
 
-          {result.output?.audioUrl && (
-            <Card size="small" title="Audio Output" className="audio-player" style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <PlayCircleOutlined style={{ fontSize: 20, color: '#667eea' }} />
-                <span>AI Podcast Audio</span>
-              </div>
-              <audio controls style={{ width: '100%' }} src={result.output.audioUrl}>
-                Your browser does not support audio playback.
-              </audio>
+          {result.output?.text && (
+            <Card size="small" title="Text Output" style={{ marginBottom: 12 }}>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{result.output.text}</p>
             </Card>
           )}
 

@@ -31,6 +31,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/login").permitAll()
+                .requestMatchers("/api/workflows/*/execute-stream").permitAll()
                 .requestMatchers("/files/**").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()

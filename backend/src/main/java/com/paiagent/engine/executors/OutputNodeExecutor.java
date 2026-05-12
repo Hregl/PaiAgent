@@ -9,6 +9,8 @@ import java.util.Map;
 
 public class OutputNodeExecutor implements NodeExecutor {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OutputNodeExecutor.class);
+
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> execute(Map<String, Object> nodeData, ExecutionContext context) {
@@ -16,6 +18,7 @@ public class OutputNodeExecutor implements NodeExecutor {
 
         // Process output references
         List<Map<String, String>> outputs = (List<Map<String, String>>) nodeData.get("outputs");
+        log.info("Output node data keys: {}, outputs count: {}", nodeData.keySet(), outputs != null ? outputs.size() : 0);
         if (outputs != null) {
             for (Map<String, String> output : outputs) {
                 // Support both new format (paramName/paramType/value) and legacy format (key/ref)
@@ -34,6 +37,7 @@ public class OutputNodeExecutor implements NodeExecutor {
                     if (cleanRef.contains(".")) {
                         String[] parts = cleanRef.split("\\.", 2);
                         Object resolvedValue = context.getNodeOutput(parts[0], parts[1]);
+                        log.info("Resolved reference {} -> {} = {}", cleanRef, paramName, resolvedValue);
                         result.put(paramName, resolvedValue);
                     } else {
                         // No dot in reference — treat as static value
@@ -42,6 +46,7 @@ public class OutputNodeExecutor implements NodeExecutor {
                 }
             }
         }
+        log.info("Output node result keys: {}", result.keySet());
 
         // Process response template — resolve {{key}} against local result map
         String template = (String) nodeData.getOrDefault("responseTemplate", "{{output}}");

@@ -18,9 +18,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api")
 public class ExecutionController {
+
+    private static final Logger log = LoggerFactory.getLogger(ExecutionController.class);
 
     private final WorkflowRepository workflowRepository;
     private final ExecutionLogRepository executionLogRepository;
@@ -142,22 +147,24 @@ public class ExecutionController {
                 String execStatus = (String) result.getOrDefault("status", "SUCCESS");
 
                 // Save execution log
-                ExecutionLog log = new ExecutionLog();
-                log.setId(UUID.randomUUID().toString());
-                log.setWorkflowId(id);
-                log.setInput(userInput);
-                log.setStatus(execStatus);
-                log.setDurationMs((int) duration);
-                log.setCreatedAt(LocalDateTime.now());
+                ExecutionLog execLog = new ExecutionLog();
+                execLog.setId(UUID.randomUUID().toString());
+                execLog.setWorkflowId(id);
+                execLog.setInput(userInput);
+                execLog.setStatus(execStatus);
+                execLog.setDurationMs((int) duration);
+                execLog.setCreatedAt(LocalDateTime.now());
                 if ("FAILED".equals(execStatus)) {
-                    log.setOutput((String) result.getOrDefault("error", "Unknown error"));
+                    execLog.setOutput((String) result.getOrDefault("error", "Unknown error"));
                 } else {
-                    log.setOutput(objectMapper.writeValueAsString(result));
+                    execLog.setOutput(objectMapper.writeValueAsString(result));
                 }
-                executionLogRepository.save(log);
+                executionLogRepository.save(execLog);
 
-                result.put("executionId", log.getId());
+                result.put("executionId", execLog.getId());
                 result.put("durationMs", duration);
+
+                log.info("SSE result output: {}", result.get("output"));
 
                 emitter.send(SseEmitter.event()
                         .name("result")
