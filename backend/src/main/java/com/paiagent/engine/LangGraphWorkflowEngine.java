@@ -17,6 +17,8 @@ import java.util.function.Consumer;
 @Component
 public class LangGraphWorkflowEngine implements WorkflowEngine {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LangGraphWorkflowEngine.class);
+
     private final NodeExecutorFactory executorFactory;
     private final ObjectMapper objectMapper;
 
@@ -227,21 +229,27 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                 ctx.setNodeOutputs(entry.getKey(), converted);
             }
         }
+        log.info("stateToContext: available node outputs = {}", ctx.getAllOutputs().keySet());
         return ctx;
     }
 
     private String resolveFromState(String template, Map<String, Object> state) {
         String result = template;
-        while (result.contains("{{") && result.contains("}}")) {
-            int start = result.indexOf("{{");
+        int pos = 0;
+        while (true) {
+            int start = result.indexOf("{{", pos);
+            if (start == -1) break;
             int end = result.indexOf("}}", start);
             if (end == -1) break;
 
             String ref = result.substring(start + 2, end).trim();
             String[] parts = ref.split("\\.", 2);
-            String value = "";
 
+            // Only resolve nodeId.field references (those with a dot).
+            // Simple {{key}} placeholders are left untouched for downstream
+            // executors (e.g. OutputNodeExecutor) to handle.
             if (parts.length == 2) {
+                String value = "";
                 Object nodeOutput = state.get(parts[0]);
                 if (nodeOutput instanceof Map) {
                     @SuppressWarnings("unchecked")
@@ -249,9 +257,12 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                     Object resolved = outputMap.get(parts[1]);
                     value = resolved != null ? resolved.toString() : "";
                 }
+                result = result.substring(0, start) + value + result.substring(end + 2);
+                pos = start + value.length();
+            } else {
+                // No dot — skip this placeholder (leave as-is)
+                pos = end + 2;
             }
-
-            result = result.substring(0, start) + value + result.substring(end + 2);
         }
         return result;
     }
@@ -262,16 +273,25 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
 
         result.put("nodeLogs", nodeLogs);
 
-        // Extract output from output-like nodes
+        // Extract output from the output node (prefer entry with "text" key,
+        // as TTS nodes also have "audioUrl" and would be picked incorrectly)
+        Map<String, Object> bestOutput = null;
         for (Map.Entry<String, Object> entry : stateMap.entrySet()) {
             if (entry.getValue() instanceof Map && !"_userInput".equals(entry.getKey())) {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> outputData = (Map<String, Object>) entry.getValue();
-                if (outputData.containsKey("text") || outputData.containsKey("audioUrl")) {
-                    result.put("output", outputData);
+                Map<String, Object> data = (Map<String, Object>) entry.getValue();
+                if (data.containsKey("text")) {
+                    // Output node — explicitly prefer this
+                    bestOutput = data;
                     break;
                 }
+                if (bestOutput == null && data.containsKey("audioUrl")) {
+                    bestOutput = data;
+                }
             }
+        }
+        if (bestOutput != null) {
+            result.put("output", bestOutput);
         }
 
         return result;
