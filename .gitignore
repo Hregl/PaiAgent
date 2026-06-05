@@ -1,28 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+backend/target/
+frontend/dist/
+
 # IDE
 .idea/
-.vscode/
 *.iml
+.vscode/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env.local
-
-# Backend
-backend/target/
-backend/*.jar
-backend/.env
-
-# Data
+# Data (SQLite DB, audio files, etc.)
 data/
-*.db
+
+# Environment
+.env
+.env.local
 
 # Docker
-.docker/
+docker-compose.override.yml
+
+# Java
+*.class
+*.jar
+!backend/*.jar
 
 # Logs
 *.log
