@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps, Divider, List } from 'antd';
+import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps, Divider, List, Modal } from 'antd';
 import { PlayCircleOutlined, PauseCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined, HistoryOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { useDebugStore } from '../../store/debugStore';
 import { useWorkflowStore } from '../../store/workflowStore';
@@ -21,6 +21,16 @@ export default function DebugDrawer() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [historyResult, setHistoryResult] = useState<ExecutionResult | null>(null);
+
+  // Result popup modal — auto-shows when execution produces comprehensive output
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+
+  // Auto-open result modal when execution completes with text output
+  useEffect(() => {
+    if (result && result.output?.text && !loading) {
+      setResultModalOpen(true);
+    }
+  }, [result, loading]);
 
   const fetchHistory = useCallback(async () => {
     if (!workflowId) return;
@@ -90,6 +100,7 @@ export default function DebugDrawer() {
   };
 
   return (
+    <>
     <Drawer
       title="调试工作流"
       placement="right"
@@ -142,8 +153,13 @@ export default function DebugDrawer() {
             items={progressMessages.map((p) => ({
               title: (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Tag color={p.nodeType === 'input' ? 'blue' : p.nodeType === 'llm' ? 'purple' : p.nodeType === 'tts' ? 'orange' : 'green'}>
-                    {p.nodeType === 'input' ? '输入' : p.nodeType === 'llm' ? 'LLM' : p.nodeType === 'tts' ? 'TTS' : '输出'}
+                  {p.phaseIndex != null && p.totalPhases != null && (
+                    <Tag color="geekblue" style={{ fontSize: 11 }}>
+                      阶段 {p.phaseIndex + 1}/{p.totalPhases}
+                    </Tag>
+                  )}
+                  <Tag color={p.nodeType === 'input' ? 'blue' : p.nodeType === 'llm' ? 'purple' : p.nodeType === 'tts' ? 'orange' : p.nodeType === 'judge' ? 'pink' : 'green'}>
+                    {p.nodeType === 'input' ? '输入' : p.nodeType === 'llm' ? 'LLM' : p.nodeType === 'tts' ? 'TTS' : p.nodeType === 'judge' ? '判断' : '输出'}
                   </Tag>
                   <span style={{ fontWeight: 500 }}>{p.label}</span>
                 </span>
@@ -239,8 +255,23 @@ export default function DebugDrawer() {
           )}
 
           {result.output?.text && (
-            <Card size="small" title="文本输出" style={{ marginBottom: 12 }}>
-              <p style={{ whiteSpace: 'pre-wrap' }}>{result.output.text}</p>
+            <Card
+              size="small"
+              title="综合输出"
+              style={{ marginBottom: 12, borderColor: '#667eea' }}
+              extra={
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={() => setResultModalOpen(true)}
+                >
+                  展开查看
+                </Button>
+              }
+            >
+              <p style={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'hidden', position: 'relative' }}>
+                {result.output.text}
+              </p>
             </Card>
           )}
 
@@ -252,8 +283,11 @@ export default function DebugDrawer() {
                   key: log.nodeId,
                   label: (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Tag color={log.nodeType === 'input' ? 'blue' : log.nodeType === 'llm' ? 'purple' : log.nodeType === 'tts' ? 'orange' : 'green'}>
-                        {log.nodeType === 'input' ? '输入' : log.nodeType === 'llm' ? 'LLM' : log.nodeType === 'tts' ? 'TTS' : '输出'}
+                      {log.phaseIndex != null && log.totalPhases != null && (
+                        <Tag color="geekblue" style={{ fontSize: 10 }}>阶段 {log.phaseIndex + 1}/{log.totalPhases}</Tag>
+                      )}
+                      <Tag color={log.nodeType === 'input' ? 'blue' : log.nodeType === 'llm' ? 'purple' : log.nodeType === 'tts' ? 'orange' : log.nodeType === 'judge' ? 'pink' : 'green'}>
+                        {log.nodeType === 'input' ? '输入' : log.nodeType === 'llm' ? 'LLM' : log.nodeType === 'tts' ? 'TTS' : log.nodeType === 'judge' ? '判断' : '输出'}
                       </Tag>
                       <span style={{ fontWeight: 600 }}>{log.nodeId}</span>
                       <Tag color={log.status === 'SUCCESS' ? 'success' : 'error'}>
@@ -438,8 +472,11 @@ export default function DebugDrawer() {
                                 key: log.nodeId,
                                 label: (
                                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <Tag color={log.nodeType === 'input' ? 'blue' : log.nodeType === 'llm' ? 'purple' : log.nodeType === 'tts' ? 'orange' : 'green'} style={{ fontSize: 10 }}>
-                                      {log.nodeType === 'input' ? '输入' : log.nodeType === 'llm' ? 'LLM' : log.nodeType === 'tts' ? 'TTS' : '输出'}
+                                    {log.phaseIndex != null && log.totalPhases != null && (
+                                      <Tag color="geekblue" style={{ fontSize: 10 }}>阶段 {log.phaseIndex + 1}/{log.totalPhases}</Tag>
+                                    )}
+                                    <Tag color={log.nodeType === 'input' ? 'blue' : log.nodeType === 'llm' ? 'purple' : log.nodeType === 'tts' ? 'orange' : log.nodeType === 'judge' ? 'pink' : 'green'} style={{ fontSize: 10 }}>
+                                      {log.nodeType === 'input' ? '输入' : log.nodeType === 'llm' ? 'LLM' : log.nodeType === 'tts' ? 'TTS' : log.nodeType === 'judge' ? '判断' : '输出'}
                                     </Tag>
                                     <span style={{ fontSize: 12 }}>{log.nodeId}</span>
                                     <Tag color={log.status === 'SUCCESS' ? 'success' : 'error'} style={{ fontSize: 10 }}>
@@ -506,5 +543,36 @@ export default function DebugDrawer() {
         </>
       )}
     </Drawer>
+
+    {/* Result Popup Modal */}
+    <Modal
+      title="综合输出结果"
+      open={resultModalOpen}
+      onCancel={() => setResultModalOpen(false)}
+      footer={
+        <Button type="primary" onClick={() => setResultModalOpen(false)}>
+          关闭
+        </Button>
+      }
+      width={720}
+      style={{ top: 20 }}
+    >
+      <div
+        style={{
+          whiteSpace: 'pre-wrap',
+          fontSize: 14,
+          lineHeight: 1.8,
+          maxHeight: '70vh',
+          overflow: 'auto',
+          background: '#fafafa',
+          padding: 20,
+          borderRadius: 8,
+          border: '1px solid #f0f0f0',
+        }}
+      >
+        {result?.output?.text || '暂无输出'}
+      </div>
+    </Modal>
+    </>
   );
 }

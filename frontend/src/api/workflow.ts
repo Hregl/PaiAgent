@@ -1,6 +1,6 @@
 import api from './index';
 import { ApiResponse } from '../types/api';
-import { Workflow, WorkflowDefinition } from '../types/workflow';
+import { Workflow, WorkflowDefinition, Phase } from '../types/workflow';
 
 export const workflowApi = {
   list(): Promise<ApiResponse<Workflow[]>> {
@@ -17,5 +17,8 @@ export const workflowApi = {
   },
   delete(id: string): Promise<ApiResponse<void>> {
     return api.delete(`/workflows/${id}`);
+  },
+  decompose(data: { taskDescription: string; provider?: string; model?: string; apiKey?: string; apiBaseUrl?: string }): Promise<ApiResponse<{ phases: Phase[] }>> {
+    return api.post('/workflows/decompose', data);
   },
 };

@@ -54,6 +54,10 @@ public class DagWorkflowEngine implements WorkflowEngine {
             for (Map<String, Object> edge : edges) {
                 String source = (String) edge.get("source");
                 String target = (String) edge.get("target");
+                // Defensive: skip edges referencing nodes that don't exist
+                if (!adjacency.containsKey(source) || !adjacency.containsKey(target)) {
+                    continue;
+                }
                 adjacency.get(source).add(target);
                 inDegree.put(target, inDegree.getOrDefault(target, 0) + 1);
             }
@@ -158,6 +162,10 @@ public class DagWorkflowEngine implements WorkflowEngine {
             for (Map<String, Object> edge : edges) {
                 String source = (String) edge.get("source");
                 String target = (String) edge.get("target");
+                // Defensive: skip edges referencing nodes that don't exist
+                if (!adjacency.containsKey(source) || !adjacency.containsKey(target)) {
+                    continue;
+                }
                 adjacency.get(source).add(target);
                 inDegree.put(target, inDegree.getOrDefault(target, 0) + 1);
             }

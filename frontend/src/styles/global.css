@@ -228,6 +228,102 @@ html, body, #root {
   font-weight: 700;
 }
 
+/* Decomposer Node */
+.custom-node.decomposer-node {
+  border-color: #7c3aed;
+  border-style: dashed;
+  background: linear-gradient(135deg, #f5f3ff 0%, #fff 100%);
+  min-width: 220px;
+  padding: 14px 20px;
+}
+
+.decomposer-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.decomposer-icon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.decomposer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.decomposer-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #5b21b6;
+}
+
+.decomposer-summary {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.decomposer-hint {
+  font-size: 10px;
+  color: #bbb;
+  font-style: italic;
+}
+
+/* Judge Node */
+.custom-node.judge-node {
+  border-color: #eb2f96;
+  background: linear-gradient(135deg, #fff0f6 0%, #fff 100%);
+  min-width: 200px;
+  padding: 12px 16px;
+}
+
+.judge-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.judge-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.judge-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.judge-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c41d7f;
+}
+
+.judge-criteria {
+  font-size: 10px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.judge-hint {
+  font-size: 10px;
+  color: #bbb;
+  font-style: italic;
+}
+
 /* Login */
 .login-container {
   width: 100vw;

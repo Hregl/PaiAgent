@@ -1,6 +1,6 @@
 import { Node, Edge } from 'reactflow';
 
-export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition';
+export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition' | 'decomposer' | 'judge';
 
 export type LLMProvider = 'deepseek' | 'qwen' | 'chatglm' | 'aiping';
 
@@ -15,6 +15,9 @@ export interface LLMNodeData {
   prompt: string;
   temperature?: number;
   maxTokens?: number;
+  phaseIndex?: number;
+  totalPhases?: number;
+  phaseName?: string;
 }
 
 export interface TTSParam {
@@ -59,7 +62,39 @@ export interface ConditionNodeData {
   rightValue: string;
 }
 
-export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData | ConditionNodeData;
+export interface DecomposerNodeData {
+  label: string;
+  taskDescription: string;
+  apiKey: string;
+  apiBaseUrl: string;
+  workerProvider: LLMProvider;
+  workerModel: string;
+  judgeProvider: LLMProvider;
+  judgeModel: string;
+  validatorProvider: LLMProvider;
+  validatorModel: string;
+}
+
+export interface Phase {
+  name: string;
+  description: string;
+  criteria: string;
+}
+
+export interface JudgeNodeData {
+  label: string;
+  provider: LLMProvider;
+  model: string;
+  apiKey: string;
+  apiBaseUrl: string;
+  leftRef: string;
+  criteria: string;
+  temperature?: number;
+  maxTokens?: number;
+  maxRetries?: number;
+}
+
+export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData | ConditionNodeData | DecomposerNodeData | JudgeNodeData;
 
 export type WorkflowNode = Node<CustomNodeData>;
 export type WorkflowEdge = Edge;
@@ -98,6 +133,8 @@ export interface NodeLog {
   output: Record<string, unknown>;
   durationMs: number;
   error?: string;
+  phaseIndex?: number;
+  totalPhases?: number;
 }
 
 export interface ProgressEntry {
@@ -107,6 +144,8 @@ export interface ProgressEntry {
   status: 'RUNNING' | 'SUCCESS' | 'FAILED';
   message: string;
   durationMs?: number;
+  phaseIndex?: number;
+  totalPhases?: number;
 }
 
 export interface ExecutionHistoryItem {

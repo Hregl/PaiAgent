@@ -24,6 +24,14 @@ const conditionNode: NodeItemConfig = {
   type: 'condition', subtype: 'condition', label: '判断分支', icon: '⑂', color: '#fff7e6',
 };
 
+const decomposerNode: NodeItemConfig = {
+  type: 'decomposer', subtype: 'decomposer', label: '任务分解器', icon: '🧩', color: '#f0f0ff',
+};
+
+const judgeNode: NodeItemConfig = {
+  type: 'judge', subtype: 'judge', label: 'AI 判断', icon: '⚖️', color: '#fff0f6',
+};
+
 export default function Sidebar() {
   const engineType = useWorkflowStore((s) => s.engineType);
 
@@ -86,6 +94,26 @@ export default function Sidebar() {
             {conditionNode.icon}
           </div>
           <span>{conditionNode.label}</span>
+        </div>
+        <div
+          className="node-item"
+          draggable
+          onDragStart={(e) => onDragStart(e, decomposerNode)}
+        >
+          <div className="node-item-icon" style={{ background: decomposerNode.color }}>
+            {decomposerNode.icon}
+          </div>
+          <span>{decomposerNode.label}</span>
+        </div>
+        <div
+          className="node-item"
+          draggable
+          onDragStart={(e) => onDragStart(e, judgeNode)}
+        >
+          <div className="node-item-icon" style={{ background: judgeNode.color }}>
+            {judgeNode.icon}
+          </div>
+          <span>{judgeNode.label}</span>
         </div>
       </div>
 

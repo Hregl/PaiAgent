@@ -12,12 +12,16 @@ public class NodeExecutorFactory {
     private final Map<String, NodeExecutor> executors = new HashMap<>();
 
     public NodeExecutorFactory(LLMNodeExecutor llmExecutor, TTSNodeExecutor ttsExecutor,
-                              ConditionNodeExecutor conditionExecutor) {
+                              ConditionNodeExecutor conditionExecutor,
+                              DecomposerExecutor decomposerExecutor,
+                              JudgeNodeExecutor judgeExecutor) {
         executors.put("input", new InputNodeExecutor());
         executors.put("output", new OutputNodeExecutor());
         executors.put("llm", llmExecutor);
         executors.put("tts", ttsExecutor);
         executors.put("condition", conditionExecutor);
+        executors.put("decomposer", decomposerExecutor);
+        executors.put("judge", judgeExecutor);
     }
 
     public NodeExecutor getExecutor(String nodeType) {

@@ -8,6 +8,7 @@ import {
   LogoutOutlined,
   CaretRightOutlined,
   PlayCircleOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { useAuthStore } from '../../store/authStore';
@@ -89,6 +90,34 @@ export default function TopBar() {
     }
   };
 
+  const handleDelete = async (id: string, name?: string) => {
+    const displayName = name || id;
+    Modal.confirm({
+      title: '确认删除',
+      content: `确定要删除工作流"${displayName}"吗？此操作不可恢复。`,
+      okText: '删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await workflowApi.delete(id);
+          message.success('已删除');
+          // If deleting current workflow, reset
+          if (workflowId === id) {
+            resetWorkflow();
+          }
+          // Refresh list if load modal is open
+          if (loadModalOpen) {
+            const res = await workflowApi.list();
+            setWorkflows(res.data);
+          }
+        } catch {
+          message.error('删除失败');
+        }
+      },
+    });
+  };
+
   const handleSelectWorkflow = async (wf: Workflow) => {
     setWorkflowId(wf.id);
     setWorkflowName(wf.name);
@@ -129,7 +158,9 @@ export default function TopBar() {
       message.warning('当前工作流包含判断节点，DAG 引擎不支持判断节点执行，请切换到 LangGraph 引擎');
       return;
     }
-    setExecuteInput('');
+    // Pre-fill from debug input if available (e.g. after decomposition)
+    const debugInput = useDebugStore.getState().input;
+    setExecuteInput(debugInput || '');
     setExecuteResult(null);
     setExecuteError(null);
     setExecuteModalOpen(true);
@@ -157,6 +188,14 @@ export default function TopBar() {
           </Button>
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
             保存
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(workflowId!, workflowName)}
+            disabled={!workflowId}
+          >
+            删除
           </Button>
           <Button
             type="primary"
@@ -210,18 +249,38 @@ export default function TopBar() {
             {workflows.map((wf) => (
               <div
                 key={wf.id}
-                onClick={() => handleSelectWorkflow(wf)}
+                onClick={(e) => {
+                  // Don't trigger select if clicking delete
+                  if ((e.target as HTMLElement).closest('.delete-btn')) return;
+                  handleSelectWorkflow(wf);
+                }}
                 style={{
                   padding: '10px 16px',
                   cursor: 'pointer',
                   borderBottom: '1px solid #f0f0f0',
                   borderRadius: 6,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f5f5')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <strong>{wf.name}</strong>
-                <div style={{ fontSize: 12, color: '#999' }}>{wf.updatedAt}</div>
+                <div>
+                  <strong>{wf.name}</strong>
+                  <div style={{ fontSize: 12, color: '#999' }}>{wf.updatedAt}</div>
+                </div>
+                <Button
+                  className="delete-btn"
+                  type="text"
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(wf.id, wf.name);
+                  }}
+                />
               </div>
             ))}
           </div>

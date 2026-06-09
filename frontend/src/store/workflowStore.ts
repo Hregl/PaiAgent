@@ -10,7 +10,20 @@ import {
   addEdge,
   Connection,
 } from 'reactflow';
-import { CustomNodeData, LLMProvider, EngineType } from '../types/workflow';
+import { CustomNodeData, LLMProvider, EngineType, Phase, DecomposerNodeData } from '../types/workflow';
+
+interface GeneratePhaseNodesParams {
+  phases: Phase[];
+  decomposerNodeId: string;
+  llmConfigs: {
+    workerProvider: LLMProvider;
+    workerModel: string;
+    judgeProvider: LLMProvider;
+    judgeModel: string;
+    validatorProvider: LLMProvider;
+    validatorModel: string;
+  };
+}
 
 interface WorkflowState {
   nodes: Node<CustomNodeData>[];
@@ -33,6 +46,7 @@ interface WorkflowState {
   setWorkflowName: (name: string) => void;
   setEngineType: (type: EngineType) => void;
   resetWorkflow: () => void;
+  generatePhaseNodes: (params: GeneratePhaseNodesParams) => void;
 }
 
 let nodeCounter = 0;
@@ -181,6 +195,229 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       selectedNodeId: null,
       workflowId: null,
       workflowName: '',
+    });
+  },
+
+  generatePhaseNodes: ({ phases, decomposerNodeId, llmConfigs }) => {
+    const state = get();
+    const decomposerNode = state.nodes.find((n) => n.id === decomposerNodeId);
+    const baseX = (decomposerNode?.position.x ?? 200) + 280;
+    const baseY = (decomposerNode?.position.y ?? 100);
+    const verticalGap = 200;
+
+    // Inherit API credentials from the decomposer node
+    const decomposerData = decomposerNode?.data as DecomposerNodeData | undefined;
+    const inheritedApiKey = decomposerData?.apiKey || '';
+    const inheritedApiBaseUrl = decomposerData?.apiBaseUrl || '';
+
+    const newNodes: Node<CustomNodeData>[] = [];
+    const newEdges: Edge[] = [];
+    const workerIds: string[] = [];
+
+    // Find Input node to inject user input into worker prompts
+    const inputNode = state.nodes.find((n) => n.type === 'input');
+    const userInputRef = inputNode ? `{{${inputNode.id}.output}}` : '';
+
+    // Generate worker + AI judge pairs for each phase
+    phases.forEach((phase, i) => {
+      const workerId = `worker_${++nodeCounter}`;
+      const judgeId = `judge_${++nodeCounter}`;
+      const y = baseY + i * verticalGap;
+
+      // Build worker prompt with user input + chain context from previous phases
+      let workerPrompt = '';
+      if (userInputRef) {
+        workerPrompt += `【用户输入】\n${userInputRef}\n\n`;
+      }
+      if (i > 0) {
+        const previousRefs = workerIds
+          .map((id, idx) => `阶段${idx + 1} (${phases[idx].name}): {{${id}.output}}`)
+          .join('\n');
+        workerPrompt += `【前序阶段工作成果】\n${previousRefs}\n\n`;
+      }
+      workerPrompt += `【当前阶段任务】\n${phase.description}\n\n请基于用户输入和前序阶段的工作成果，完成当前阶段的任务。`;
+
+      // Worker LLM node
+      const workerNode: Node<CustomNodeData> = {
+        id: workerId,
+        type: 'llm',
+        position: { x: baseX, y },
+        data: {
+          label: phase.name,
+          provider: llmConfigs.workerProvider,
+          model: llmConfigs.workerModel,
+          apiBaseUrl: inheritedApiBaseUrl,
+          apiKey: inheritedApiKey,
+          prompt: workerPrompt,
+          temperature: 0.7,
+          maxTokens: 2048,
+          phaseIndex: i,
+          totalPhases: phases.length,
+          phaseName: phase.name,
+        },
+      };
+
+      // AI Judge node (replaces old condition node)
+      const judgeNode: Node<CustomNodeData> = {
+        id: judgeId,
+        type: 'judge',
+        position: { x: baseX + 280, y },
+        data: {
+          label: `判断: ${phase.name}`,
+          provider: llmConfigs.judgeProvider,
+          model: llmConfigs.judgeModel,
+          apiKey: inheritedApiKey,
+          apiBaseUrl: inheritedApiBaseUrl,
+          leftRef: `${workerId}.output`,
+          criteria: phase.criteria,
+          temperature: 0.1,
+          maxTokens: 256,
+          maxRetries: 3,
+        },
+      };
+
+      newNodes.push(workerNode, judgeNode);
+      workerIds.push(workerId);
+
+      // Edge: worker → judge
+      newEdges.push({
+        id: `${workerId}->${judgeId}`,
+        source: workerId,
+        target: judgeId,
+        type: 'smoothstep',
+        animated: true,
+      });
+
+      // Edge: judge.false → worker (loop back with retry)
+      newEdges.push({
+        id: `${judgeId}->${workerId}`,
+        source: judgeId,
+        sourceHandle: 'false',
+        target: workerId,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#faad14', strokeDasharray: '5,5' },
+        label: '重试',
+      });
+
+      // Edge: judge.true → next worker (except last phase)
+      if (i < phases.length - 1) {
+        newEdges.push({
+          id: `${judgeId}->worker_${i + 2}`,
+          source: judgeId,
+          sourceHandle: 'true',
+          target: `worker_${nodeCounter + 1}`, // next worker will have this id
+          type: 'smoothstep',
+          animated: true,
+        });
+      }
+    });
+
+    // Validator LLM node (after last judge)
+    const validatorId = `validator_${++nodeCounter}`;
+    const lastJudge = newNodes.filter((n) => n.type === 'judge').pop();
+
+    const phaseSummaries = workerIds
+      .map((id, idx) => `阶段${idx + 1} (${phases[idx].name}): {{${id}.output}}`)
+      .join('\n');
+    const validatorPrompt = `你是一个多阶段任务的最终验证专家。以下是一个复杂任务被分解为${phases.length}个阶段后的全部执行结果。\n\n请逐阶段审查并给出最终验证结论：\n- 每个阶段是否达到了预期目标\n- 各阶段成果之间的逻辑一致性\n- 整体任务是否已完成\n\n${phaseSummaries}`;
+    
+    const validatorNode: Node<CustomNodeData> = {
+      id: validatorId,
+      type: 'llm',
+      position: { x: baseX + 560, y: baseY + ((phases.length - 1) * verticalGap) / 2 },
+      data: {
+        label: '最终验证',
+        provider: llmConfigs.validatorProvider,
+        model: llmConfigs.validatorModel,
+        apiBaseUrl: inheritedApiBaseUrl,
+        apiKey: inheritedApiKey,
+        prompt: validatorPrompt,
+        temperature: 0.3,
+        maxTokens: 2048,
+      },
+    };
+    newNodes.push(validatorNode);
+
+    // Edge: last judge.true → validator
+    if (lastJudge) {
+      newEdges.push({
+        id: `${lastJudge.id}->${validatorId}`,
+        source: lastJudge.id,
+        sourceHandle: 'true',
+        target: validatorId,
+        type: 'smoothstep',
+        animated: true,
+      });
+    }
+
+    // Remove decomposer node, keep other nodes, add generated ones
+    const remainingNodes = state.nodes.filter(
+      (n) => n.id !== decomposerNodeId
+    );
+    // Discard ALL old edges: decomposition rebuilds the entire graph topology.
+    // Keeping stale edges from previous decompositions causes "edge with sourceId
+    // doesn't exist" errors when the backend can't find referenced nodes.
+    const remainingEdges: Edge[] = [];
+
+    // Connect the generated chain to Input / Output nodes
+    const outputNode = remainingNodes.find((n) => n.type === 'output');
+    const firstWorker = newNodes.find((n) => n.type === 'llm');
+
+    // inputNode was already found above for prompt building
+
+    if (inputNode && firstWorker) {
+      newEdges.push({
+        id: `${inputNode.id}->${firstWorker.id}`,
+        source: inputNode.id,
+        target: firstWorker.id,
+        type: 'smoothstep',
+        animated: true,
+      });
+    }
+
+    if (outputNode) {
+      newEdges.push({
+        id: `${validatorId}->${outputNode.id}`,
+        source: validatorId,
+        target: outputNode.id,
+        type: 'smoothstep',
+        animated: true,
+      });
+    }
+
+    // Rewire Output node to collect all phase results + validator
+    const updatedRemainingNodes = remainingNodes.map((n) => {
+      if (n.type !== 'output') return n;
+      const phaseOutputs = workerIds.map((id, idx) => ({
+        paramName: `phase_${idx + 1}`,
+        paramType: 'reference' as const,
+        value: `${id}.output`,
+      }));
+      const allOutputs = [
+        ...phaseOutputs,
+        { paramName: 'validation', paramType: 'reference' as const, value: `${validatorId}.output` },
+      ];
+      const phaseSections = workerIds
+        .map((_id, idx) => `### 阶段${idx + 1}: ${phases[idx].name}\n\n{{phase_${idx + 1}}}`)
+        .join('\n\n');
+      const responseTemplate =
+        `${phaseSections}\n\n---\n\n### 最终验证\n\n{{validation}}`;
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          label: '汇总输出',
+          outputs: allOutputs,
+          responseTemplate,
+        },
+      };
+    });
+
+    set({
+      nodes: [...updatedRemainingNodes, ...newNodes],
+      edges: [...remainingEdges, ...newEdges],
+      selectedNodeId: null,
     });
   },
 }));

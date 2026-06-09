@@ -2,7 +2,9 @@ package com.paiagent.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.paiagent.engine.executors.DecomposerExecutor;
 import com.paiagent.model.dto.ApiResponse;
+import com.paiagent.model.dto.DecomposeRequest;
 import com.paiagent.model.dto.WorkflowDTO;
 import com.paiagent.model.entity.User;
 import com.paiagent.model.entity.Workflow;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,12 +27,14 @@ public class WorkflowController {
     private final WorkflowRepository workflowRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final DecomposerExecutor decomposerExecutor;
 
     public WorkflowController(WorkflowRepository workflowRepository, UserRepository userRepository,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper, DecomposerExecutor decomposerExecutor) {
         this.workflowRepository = workflowRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
+        this.decomposerExecutor = decomposerExecutor;
     }
 
     @GetMapping
@@ -73,6 +78,23 @@ public class WorkflowController {
         workflow.setUpdatedAt(LocalDateTime.now());
         workflowRepository.save(workflow);
         return ApiResponse.success(workflow);
+    }
+
+    @PostMapping("/decompose")
+    public ApiResponse<Object> decompose(@Valid @RequestBody DecomposeRequest request) {
+        String provider = request.getProvider() != null ? request.getProvider() : "deepseek";
+        String model = request.getModel() != null ? request.getModel() : "deepseek-chat";
+        String apiKey = request.getApiKey();
+        String apiBaseUrl = request.getApiBaseUrl();
+
+        DecomposerExecutor.DecompositionResult result =
+            decomposerExecutor.decompose(request.getTaskDescription(), provider, model, apiKey, apiBaseUrl);
+
+        if (!result.success) {
+            return ApiResponse.error(400, result.error);
+        }
+
+        return ApiResponse.success(Map.of("phases", result.phases));
     }
 
     @DeleteMapping("/{id}")

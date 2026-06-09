@@ -15,6 +15,8 @@ import OutputNode from './nodes/OutputNode';
 import LLMNode from './nodes/LLMNode';
 import ToolNode from './nodes/ToolNode';
 import ConditionNode from './nodes/ConditionNode';
+import DecomposerNode from './nodes/DecomposerNode';
+import JudgeNode from './nodes/JudgeNode';
 import { CustomNodeData, LLMProvider } from '../../types/workflow';
 
 const nodeTypes: NodeTypes = {
@@ -23,6 +25,8 @@ const nodeTypes: NodeTypes = {
   llm: LLMNode,
   tts: ToolNode,
   condition: ConditionNode,
+  decomposer: DecomposerNode,
+  judge: JudgeNode,
 };
 
 let nodeId = 0;
@@ -167,6 +171,32 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
         leftRef: '',
         operator: 'contains',
         rightValue: '',
+      };
+    case 'decomposer':
+      return {
+        label: '任务分解器',
+        taskDescription: '',
+        apiKey: '',
+        apiBaseUrl: '',
+        workerProvider: 'deepseek' as LLMProvider,
+        workerModel: 'deepseek-chat',
+        judgeProvider: 'deepseek' as LLMProvider,
+        judgeModel: 'deepseek-chat',
+        validatorProvider: 'deepseek' as LLMProvider,
+        validatorModel: 'deepseek-chat',
+      };
+    case 'judge':
+      return {
+        label: 'AI 判断',
+        provider: 'deepseek' as LLMProvider,
+        model: 'deepseek-chat',
+        apiKey: '',
+        apiBaseUrl: '',
+        leftRef: '',
+        criteria: '',
+        temperature: 0.1,
+        maxTokens: 256,
+        maxRetries: 3,
       };
     default:
       return { label: config.label };

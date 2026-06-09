@@ -82,9 +82,40 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
             final String label = (String) nodeData.getOrDefault("label", type);
             final Map<String, Object> finalData = nodeData;
 
+            // Extract phase metadata for progress display
+            final Object rawPhaseIndex = nodeData.get("phaseIndex");
+            final Object rawTotalPhases = nodeData.get("totalPhases");
+            final Integer phaseIndex = rawPhaseIndex instanceof Number ? ((Number) rawPhaseIndex).intValue() : null;
+            final Integer totalPhases = rawTotalPhases instanceof Number ? ((Number) rawTotalPhases).intValue() : null;
+            final String phasePrefix = (phaseIndex != null && totalPhases != null)
+                    ? String.format("阶段 %d/%d: ", phaseIndex + 1, totalPhases)
+                    : "";
+            
+            // Retrieve retry config for judge nodes to prevent infinite loops
+            final int maxRetries = nodeData.get("maxRetries") instanceof Number
+                    ? ((Number) nodeData.get("maxRetries")).intValue() : 3;
+            final String retryKey = "_retry_" + nodeId;
+
             graph.addNode(nodeId, AsyncNodeAction.node_async(state -> {
                 Map<String, Object> data = new HashMap<>(finalData);
                 Map<String, Object> stateMap = state.data();
+
+                // Retry cap for judge nodes: if retry count >= maxRetries, force pass
+                if ("judge".equals(type)) {
+                    int retryCount = stateMap.containsKey(retryKey)
+                            ? ((Number) stateMap.get(retryKey)).intValue() : 0;
+                    if (retryCount >= maxRetries) {
+                        log.warn("Judge {} reached max retries ({}), forcing pass", nodeId, maxRetries);
+                        Map<String, Object> forced = new HashMap<>();
+                        forced.put("branch", "true");
+                        forced.put("reasoning", "达到最大重试次数(" + maxRetries + ")，强制通过");
+                        Map<String, Object> updated = new HashMap<>(stateMap);
+                        updated.put(nodeId, forced);
+                        return updated;
+                    }
+                    // Inject current retry count into data for the executor
+                    data.put("_retryCount", retryCount);
+                }
 
                 // Resolve template references from state
                 for (Map.Entry<String, Object> entry : data.entrySet()) {
@@ -103,7 +134,9 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                     running.put("nodeType", type);
                     running.put("label", label);
                     running.put("status", "RUNNING");
-                    running.put("message", progressMessage(type, label));
+                    running.put("message", phasePrefix + progressMessage(type, label));
+                    if (phaseIndex != null) running.put("phaseIndex", phaseIndex);
+                    if (totalPhases != null) running.put("totalPhases", totalPhases);
                     progressCallback.accept(running);
                 }
 
@@ -121,6 +154,8 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                     log.put("status", "SUCCESS");
                     log.put("output", output);
                     log.put("durationMs", duration);
+                    if (phaseIndex != null) log.put("phaseIndex", phaseIndex);
+                    if (totalPhases != null) log.put("totalPhases", totalPhases);
                     nodeLogs.add(log);
 
                     // Notify: node SUCCESS
@@ -130,14 +165,24 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                         success.put("nodeType", type);
                         success.put("label", label);
                         success.put("status", "SUCCESS");
-                        success.put("message", "Completed in " + duration + "ms");
+                        success.put("message", phasePrefix + "Completed in " + duration + "ms");
                         success.put("durationMs", duration);
+                        if (phaseIndex != null) success.put("phaseIndex", phaseIndex);
+                        if (totalPhases != null) success.put("totalPhases", totalPhases);
                         progressCallback.accept(success);
                     }
 
                     // Merge output into state
                     Map<String, Object> updated = new HashMap<>(stateMap);
                     updated.put(nodeId, output);
+
+                    // Track retry count for judge nodes: if verdict is "false", increment counter
+                    if ("judge".equals(type) && "false".equals(output.get("branch"))) {
+                        int retryCount = stateMap.containsKey(retryKey)
+                                ? ((Number) stateMap.get(retryKey)).intValue() : 0;
+                        updated.put(retryKey, retryCount + 1);
+                    }
+
                     return updated;
                 } catch (Exception e) {
                     long duration = System.currentTimeMillis() - nodeStart;
@@ -148,6 +193,8 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                     log.put("status", "FAILED");
                     log.put("error", e.getMessage());
                     log.put("durationMs", duration);
+                    if (phaseIndex != null) log.put("phaseIndex", phaseIndex);
+                    if (totalPhases != null) log.put("totalPhases", totalPhases);
                     nodeLogs.add(log);
 
                     // Notify: node FAILED
@@ -157,8 +204,10 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                         failed.put("nodeType", type);
                         failed.put("label", label);
                         failed.put("status", "FAILED");
-                        failed.put("message", "Failed: " + e.getMessage());
+                        failed.put("message", phasePrefix + "Failed: " + e.getMessage());
                         failed.put("durationMs", duration);
+                        if (phaseIndex != null) failed.put("phaseIndex", phaseIndex);
+                        if (totalPhases != null) failed.put("totalPhases", totalPhases);
                         progressCallback.accept(failed);
                     }
 
@@ -167,10 +216,11 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
             }));
         }
 
-        // Collect condition node IDs for special edge handling
+        // Collect condition/judge node IDs for special edge handling
         Set<String> conditionNodeIds = new HashSet<>();
         for (Map<String, Object> node : nodes) {
-            if ("condition".equals(node.get("type"))) {
+            String nodeType = (String) node.get("type");
+            if ("condition".equals(nodeType) || "judge".equals(nodeType)) {
                 conditionNodeIds.add((String) node.get("id"));
             }
         }
@@ -182,8 +232,20 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
             for (Map<String, Object> edge : edges) {
                 String source = (String) edge.get("source");
                 String target = (String) edge.get("target");
+
+                // Defensive: skip edges referencing nodes that don't exist (stale from previous decompositions)
+                if (!nodeMap.containsKey(source)) {
+                    log.warn("Skipping edge {} → {}: source node '{}' not found in workflow", source, target, source);
+                    continue;
+                }
+                if (!nodeMap.containsKey(target)) {
+                    log.warn("Skipping edge {} → {}: target node '{}' not found in workflow", source, target, target);
+                    continue;
+                }
+
                 if (conditionNodeIds.contains(source)) {
-                    String branch = (String) edge.getOrDefault("branch", "true");
+                    // Read branch from 'branch' field first, fallback to 'sourceHandle' (used by frontend)
+                    String branch = (String) edge.getOrDefault("branch", edge.getOrDefault("sourceHandle", "true"));
                     conditionPathMaps.computeIfAbsent(source, k -> new LinkedHashMap<>()).put(branch, target);
                 } else {
                     graph.addEdge(source, target);
@@ -233,11 +295,13 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
         Map<String, Object> initialState = new HashMap<>();
         initialState.put("_userInput", userInput);
 
+        // Compile and invoke with retry-cap protection for judge nodes
         var compiled = graph.compile();
-        var resultState = compiled.invoke(initialState);
+        var optState = compiled.invoke(initialState);
+        AgentState resultState = optState.orElse(new AgentState(initialState));
 
         // Convert result with collected nodeLogs
-        return convertToResult(resultState.orElse(new AgentState(initialState)), nodeLogs);
+        return convertToResult(resultState, nodeLogs);
     }
 
     private String findEntryNodeId(List<Map<String, Object>> nodes, List<Map<String, Object>> edges) {

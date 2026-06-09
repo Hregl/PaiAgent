@@ -1,15 +1,19 @@
 import { useWorkflowStore } from '../../store/workflowStore';
+import { useDebugStore } from '../../store/debugStore';
 import { Form, Input, Select, InputNumber, Button, Divider, message, Checkbox } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Node } from 'reactflow';
 import { CustomNodeData } from '../../types/workflow';
+import { workflowApi } from '../../api/workflow';
+import { configApi } from '../../api/config';
 
 const { TextArea } = Input;
 
 export default function ConfigPanel() {
   const { nodes, edges, selectedNodeId, updateNodeData } = useWorkflowStore();
   const [form] = Form.useForm();
+  const [decomposeLoading, setDecomposeLoading] = useState(false);
 
   const selectedNode: Node<CustomNodeData> | undefined = nodes.find(
     (n) => n.id === selectedNodeId
@@ -47,6 +51,64 @@ export default function ConfigPanel() {
     const values = form.getFieldsValue();
     updateNodeData(selectedNode.id, values);
     message.success('配置已保存');
+  };
+
+  const handleDecompose = async () => {
+    const values = form.getFieldsValue();
+    // Save first
+    updateNodeData(selectedNode!.id, values);
+
+    if (!values.taskDescription?.trim()) {
+      message.warning('请先填写任务描述');
+      return;
+    }
+
+    setDecomposeLoading(true);
+    try {
+      const res = await workflowApi.decompose({
+        taskDescription: values.taskDescription,
+        provider: values.workerProvider || 'deepseek',
+        model: values.workerModel || 'deepseek-chat',
+        apiKey: values.apiKey || '',
+        apiBaseUrl: values.apiBaseUrl || '',
+      });
+
+      if (res.code !== 200 || !res.data?.phases) {
+        message.error(res.message || '分解失败');
+        return;
+      }
+
+      const store = useWorkflowStore.getState();
+      store.generatePhaseNodes({
+        phases: res.data.phases,
+        decomposerNodeId: selectedNode!.id,
+        llmConfigs: {
+          workerProvider: values.workerProvider || 'deepseek',
+          workerModel: values.workerModel || 'deepseek-chat',
+          judgeProvider: values.judgeProvider || 'deepseek',
+          judgeModel: values.judgeModel || 'deepseek-chat',
+          validatorProvider: values.validatorProvider || 'deepseek',
+          validatorModel: values.validatorModel || 'deepseek-chat',
+        },
+      });
+
+      // Auto-fill debug input with task description so user doesn't need to retype
+      useDebugStore.getState().setInput(values.taskDescription);
+
+      // Switch engine to LangGraph: decomposed workflows need conditional edges (judge retry loop)
+      const currentEngine = useWorkflowStore.getState().engineType;
+      if (currentEngine !== 'langgraph') {
+        configApi.setEngineType('langgraph').catch(() => {});
+        useWorkflowStore.getState().setEngineType('langgraph');
+      }
+
+      message.success(`已生成 ${res.data.phases.length} 个阶段节点`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '分解失败';
+      message.error(msg);
+    } finally {
+      setDecomposeLoading(false);
+    }
   };
 
   const renderForm = () => {
@@ -362,6 +424,134 @@ export default function ConfigPanel() {
                   </Form.Item>
                 );
               }}
+            </Form.Item>
+          </>
+        );
+      case 'decomposer':
+        return (
+          <>
+            <Form.Item label="API 地址" name="apiBaseUrl">
+              <Input placeholder="https://api.deepseek.com" />
+            </Form.Item>
+            <Form.Item label="API 密钥" name="apiKey">
+              <Input.Password placeholder="sk-xxxxxxxx" />
+            </Form.Item>
+
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              分解任务
+            </Divider>
+            <Form.Item
+              label="任务描述"
+              name="taskDescription"
+              rules={[{ required: true, message: '请输入任务描述' }]}
+              extra="描述需要AI完成的总任务，支持 {{nodeId.field}} 引用上游"
+            >
+              <TextArea rows={4} placeholder="例如：撰写一篇关于AI发展的技术博客..." />
+            </Form.Item>
+
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              Worker AI 配置
+            </Divider>
+            <Form.Item label="提供商" name="workerProvider">
+              <Select>
+                <Select.Option value="deepseek">DeepSeek</Select.Option>
+                <Select.Option value="qwen">通义千问</Select.Option>
+                <Select.Option value="chatglm">智谱</Select.Option>
+                <Select.Option value="aiping">AI Ping</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="模型" name="workerModel">
+              <Input placeholder="deepseek-chat" />
+            </Form.Item>
+
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              Judge AI 配置
+            </Divider>
+            <Form.Item label="提供商" name="judgeProvider">
+              <Select>
+                <Select.Option value="deepseek">DeepSeek</Select.Option>
+                <Select.Option value="qwen">通义千问</Select.Option>
+                <Select.Option value="chatglm">智谱</Select.Option>
+                <Select.Option value="aiping">AI Ping</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="模型" name="judgeModel">
+              <Input placeholder="deepseek-chat" />
+            </Form.Item>
+
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              Validator AI 配置
+            </Divider>
+            <Form.Item label="提供商" name="validatorProvider">
+              <Select>
+                <Select.Option value="deepseek">DeepSeek</Select.Option>
+                <Select.Option value="qwen">通义千问</Select.Option>
+                <Select.Option value="chatglm">智谱</Select.Option>
+                <Select.Option value="aiping">AI Ping</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="模型" name="validatorModel">
+              <Input placeholder="deepseek-chat" />
+            </Form.Item>
+
+            <Button
+              type="primary"
+              block
+              onClick={handleDecompose}
+              loading={decomposeLoading}
+              style={{ marginTop: 8, background: '#722ed1', borderColor: '#722ed1' }}
+            >
+              {decomposeLoading ? 'AI 分解中...' : '🧩 智能分解'}
+            </Button>
+          </>
+        );
+      case 'judge':
+        return (
+          <>
+            <Form.Item label="API 地址" name="apiBaseUrl">
+              <Input placeholder="https://api.deepseek.com" />
+            </Form.Item>
+            <Form.Item label="API 密钥" name="apiKey">
+              <Input.Password placeholder="sk-xxxxxxxx" />
+            </Form.Item>
+
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              AI 判断
+            </Divider>
+            <Form.Item label="提供商" name="provider">
+              <Select>
+                <Select.Option value="deepseek">DeepSeek</Select.Option>
+                <Select.Option value="qwen">通义千问</Select.Option>
+                <Select.Option value="chatglm">智谱</Select.Option>
+                <Select.Option value="aiping">AI Ping</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="模型" name="model">
+              <Input placeholder="deepseek-chat" />
+            </Form.Item>
+            <Form.Item label="上游引用" name="leftRef" extra="引用 Worker 节点的输出进行判断">
+              {upstreamRefs.length > 0 ? (
+                <Select placeholder="选择上游 Worker..." allowClear>
+                  {upstreamRefs.map((ref) => (
+                    <Select.Option key={ref.value} value={ref.value}>
+                      {ref.label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              ) : (
+                <Input placeholder="例如: worker_1.output" />
+              )}
+            </Form.Item>
+            <Form.Item
+              label="判断标准"
+              name="criteria"
+              rules={[{ required: true, message: '请输入判断标准' }]}
+              extra="AI 将根据此标准评估 Worker 输出是否合格"
+            >
+              <TextArea rows={4} placeholder="例如：输出应包含完整的技术方案、风险评估和实施步骤" />
+            </Form.Item>
+            <Form.Item label="最大重试" name="maxRetries" extra="不通过时最多重试次数">
+              <InputNumber min={1} max={10} style={{ width: '100%' }} />
             </Form.Item>
           </>
         );
