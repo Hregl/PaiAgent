@@ -4,9 +4,10 @@ import { Form, Input, Select, InputNumber, Button, Divider, message, Checkbox } 
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Node } from 'reactflow';
-import { CustomNodeData } from '../../types/workflow';
+import { CustomNodeData, Phase } from '../../types/workflow';
 import { workflowApi } from '../../api/workflow';
 import { configApi } from '../../api/config';
+import PhaseReviewModal from './PhaseReviewModal';
 
 const { TextArea } = Input;
 
@@ -14,6 +15,20 @@ export default function ConfigPanel() {
   const { nodes, edges, selectedNodeId, updateNodeData } = useWorkflowStore();
   const [form] = Form.useForm();
   const [decomposeLoading, setDecomposeLoading] = useState(false);
+  const [reviewPhases, setReviewPhases] = useState<Phase[] | null>(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  // Store decomposer config for later use when user confirms phases
+  const [pendingDecomposeConfig, setPendingDecomposeConfig] = useState<{
+    decomposerNodeId: string;
+    llmConfigs: {
+      workerProvider: string;
+      workerModel: string;
+      judgeProvider: string;
+      judgeModel: string;
+      validatorProvider: string;
+      validatorModel: string;
+    };
+  } | null>(null);
 
   const selectedNode: Node<CustomNodeData> | undefined = nodes.find(
     (n) => n.id === selectedNodeId
@@ -78,37 +93,65 @@ export default function ConfigPanel() {
         return;
       }
 
-      const store = useWorkflowStore.getState();
-      store.generatePhaseNodes({
-        phases: res.data.phases,
+      const llmConfigs = {
+        workerProvider: values.workerProvider || 'deepseek',
+        workerModel: values.workerModel || 'deepseek-chat',
+        judgeProvider: values.judgeProvider || 'deepseek',
+        judgeModel: values.judgeModel || 'deepseek-chat',
+        validatorProvider: values.validatorProvider || 'deepseek',
+        validatorModel: values.validatorModel || 'deepseek-chat',
+      };
+
+      const phases = res.data.phases as Phase[];
+      if (!phases || phases.length === 0) {
+        message.error('分解结果为空，请重试');
+        return;
+      }
+
+      // Show review modal instead of immediately generating nodes
+      setPendingDecomposeConfig({
         decomposerNodeId: selectedNode!.id,
-        llmConfigs: {
-          workerProvider: values.workerProvider || 'deepseek',
-          workerModel: values.workerModel || 'deepseek-chat',
-          judgeProvider: values.judgeProvider || 'deepseek',
-          judgeModel: values.judgeModel || 'deepseek-chat',
-          validatorProvider: values.validatorProvider || 'deepseek',
-          validatorModel: values.validatorModel || 'deepseek-chat',
-        },
+        llmConfigs,
       });
+      setReviewPhases(phases);
+      setReviewModalOpen(true);
 
       // Auto-fill debug input with task description so user doesn't need to retype
       useDebugStore.getState().setInput(values.taskDescription);
-
-      // Switch engine to LangGraph: decomposed workflows need conditional edges (judge retry loop)
-      const currentEngine = useWorkflowStore.getState().engineType;
-      if (currentEngine !== 'langgraph') {
-        configApi.setEngineType('langgraph').catch(() => {});
-        useWorkflowStore.getState().setEngineType('langgraph');
-      }
-
-      message.success(`已生成 ${res.data.phases.length} 个阶段节点`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '分解失败';
       message.error(msg);
     } finally {
       setDecomposeLoading(false);
     }
+  };
+
+  const handlePhaseConfirm = (phases: Phase[]) => {
+    if (!pendingDecomposeConfig) return;
+    const store = useWorkflowStore.getState();
+    store.generatePhaseNodes({
+      phases,
+      decomposerNodeId: pendingDecomposeConfig.decomposerNodeId,
+      llmConfigs: pendingDecomposeConfig.llmConfigs,
+    });
+
+    // Switch engine to LangGraph: decomposed workflows need conditional edges
+    const currentEngine = useWorkflowStore.getState().engineType;
+    if (currentEngine !== 'langgraph') {
+      configApi.setEngineType('langgraph').catch(() => {});
+      useWorkflowStore.getState().setEngineType('langgraph');
+    }
+
+    message.success(`已生成 ${phases.length} 个阶段节点`);
+    setReviewModalOpen(false);
+    setReviewPhases(null);
+    setPendingDecomposeConfig(null);
+  };
+
+  const handlePhaseCancel = () => {
+    setReviewModalOpen(false);
+    setReviewPhases(null);
+    setPendingDecomposeConfig(null);
   };
 
   const renderForm = () => {
@@ -595,6 +638,14 @@ export default function ConfigPanel() {
       <Button type="primary" block onClick={handleSave}>
         保存配置
       </Button>
+      {reviewPhases && (
+        <PhaseReviewModal
+          open={reviewModalOpen}
+          phases={reviewPhases}
+          onConfirm={handlePhaseConfirm}
+          onCancel={handlePhaseCancel}
+        />
+      )}
     </div>
   );
 }

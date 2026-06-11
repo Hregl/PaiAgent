@@ -95,7 +95,7 @@ public class JudgeNodeExecutor implements NodeExecutor {
 
     /**
      * Build a prompt instructing the LLM to judge whether the worker output
-     * satisfies the criteria. Returns ONLY "true" or "false" with a brief reason.
+     * satisfies the criteria. Returns structured JSON for reliable parsing.
      */
     private String buildJudgePrompt(String workerOutput, String criteria) {
         return """
@@ -110,31 +110,62 @@ public class JudgeNodeExecutor implements NodeExecutor {
 
             INSTRUCTIONS:
             1. Carefully compare the work output against each criterion
-            2. If the output satisfies ALL criteria, respond: true
-            3. If ANY criterion is not met, respond: false
-            4. After your true/false verdict, give a one-line reason in Chinese
+            2. If the output satisfies ALL criteria, set verdict to true
+            3. If ANY criterion is not met, set verdict to false
+            4. Give a one-line reason in Chinese
+            5. List any criteria that were NOT met (empty array if all passed)
 
-            Respond in this exact format (no markdown, no extra text):
-            true/false
-            原因: <one-line reason>
+            IMPORTANT: Return ONLY a JSON object, no markdown, no extra text:
+            {"verdict": true, "reason": "简要原因", "missing": []}
+            or
+            {"verdict": false, "reason": "未达标原因", "missing": ["未满足的条件1", "条件2"]}
             """.formatted(criteria, workerOutput);
     }
 
     /**
      * Parse the LLM response to extract the boolean judgment.
-     * Expects format: "true\\n原因: ..." or "false\\n原因: ..."
+     * Expects JSON: {"verdict": true/false, "reason": "...", "missing": [...]}
+     * Falls back to legacy string matching if JSON parsing fails.
      */
     private boolean parseJudgment(String response) {
         if (response == null || response.isBlank()) {
             log.warn("Judge received empty response, defaulting to false");
             return false;
         }
-        String firstLine = response.lines().findFirst().orElse("").trim().toLowerCase();
-        // Accept various positive signals
-        if (firstLine.startsWith("true") || firstLine.startsWith("pass")
-                || firstLine.contains("通过")) {
-            return true;
+        try {
+            String json = extractJson(response);
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> parsed =
+                new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, java.util.Map.class);
+            Object verdict = parsed.get("verdict");
+            if (verdict instanceof Boolean) {
+                return (Boolean) verdict;
+            }
+            if (verdict != null) {
+                return "true".equalsIgnoreCase(verdict.toString());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse judge JSON response, falling back to string match: {}", e.getMessage());
         }
-        return false;
+        // Fallback: legacy string matching
+        String firstLine = response.lines().findFirst().orElse("").trim().toLowerCase();
+        return firstLine.startsWith("true") || firstLine.startsWith("pass")
+                || firstLine.contains("通过") || firstLine.contains("true") || firstLine.contains("pass");
+    }
+
+    private String extractJson(String response) {
+        // Strip markdown code blocks
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+            "```(?:json)?\\s*(\\{.*?\\})\\s*```", java.util.regex.Pattern.DOTALL);
+        java.util.regex.Matcher matcher = pattern.matcher(response);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        int start = response.indexOf('{');
+        int end = response.lastIndexOf('}');
+        if (start != -1 && end != -1 && end > start) {
+            return response.substring(start, end + 1);
+        }
+        return response;
     }
 }

@@ -296,11 +296,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
       if (i > 0) {
         const previousRefs = workerIds
-          .map((id, idx) => `阶段${idx + 1} (${phases[idx].name}): {{${id}.output}}`)
-          .join('\n');
-        workerPrompt += `【前序阶段工作成果】\n${previousRefs}\n\n`;
+          .map((id, idx) => `--- 阶段${idx + 1} (${phases[idx].name}) 输出 ---\n{{${id}.output}}`)
+          .join('\n\n');
+        workerPrompt += `【前序阶段工作成果】\n请仔细阅读以下各阶段的输出，提取与当前任务相关的关键信息：\n\n${previousRefs}\n\n`;
       }
-      workerPrompt += `【当前阶段任务】\n${phase.description}\n\n请基于用户输入和前序阶段的工作成果，完成当前阶段的任务。`;
+      workerPrompt += `【当前阶段任务】\n${phase.description}\n\n`;
+      workerPrompt += `【执行要求】\n1. 基于用户输入和前序阶段的工作成果，完成当前阶段任务\n`;
+      if (i > 0) {
+        workerPrompt += `2. 前序输出中如有与当前任务不相关的细节，请忽略；聚焦于关键结论和结果\n`;
+      }
+      workerPrompt += `${i > 0 ? '3' : '2'}. 输出清晰、结构化良好的结果`;
 
       // Worker LLM node
       const workerNode: Node<CustomNodeData> = {
