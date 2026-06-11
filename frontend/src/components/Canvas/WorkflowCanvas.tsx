@@ -17,8 +17,6 @@ import ToolNode from './nodes/ToolNode';
 import ConditionNode from './nodes/ConditionNode';
 import DecomposerNode from './nodes/DecomposerNode';
 import JudgeNode from './nodes/JudgeNode';
-import HttpNode from './nodes/HttpNode';
-import WebSearchNode from './nodes/WebSearchNode';
 import { CustomNodeData, LLMProvider } from '../../types/workflow';
 
 const nodeTypes: NodeTypes = {
@@ -29,8 +27,6 @@ const nodeTypes: NodeTypes = {
   condition: ConditionNode,
   decomposer: DecomposerNode,
   judge: JudgeNode,
-  http: HttpNode,
-  web_search: WebSearchNode,
 };
 
 let nodeId = 0;
@@ -206,21 +202,6 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
         temperature: 0.1,
         maxTokens: 256,
         maxRetries: 3,
-      };
-    case 'http':
-      return {
-        label: 'HTTP 请求',
-        method: 'GET',
-        url: '',
-        headers: [],
-        body: '',
-        timeout: 10000,
-      };
-    case 'web_search':
-      return {
-        label: 'Web 搜索',
-        query: '',
-        maxResults: 5,
       };
     default:
       return { label: config.label };

@@ -14,9 +14,7 @@ public class NodeExecutorFactory {
     public NodeExecutorFactory(LLMNodeExecutor llmExecutor, TTSNodeExecutor ttsExecutor,
                               ConditionNodeExecutor conditionExecutor,
                               DecomposerExecutor decomposerExecutor,
-                              JudgeNodeExecutor judgeExecutor,
-                              HttpNodeExecutor httpExecutor,
-                              WebSearchNodeExecutor webSearchExecutor) {
+                              JudgeNodeExecutor judgeExecutor) {
         executors.put("input", new InputNodeExecutor());
         executors.put("output", new OutputNodeExecutor());
         executors.put("llm", llmExecutor);
@@ -24,8 +22,6 @@ public class NodeExecutorFactory {
         executors.put("condition", conditionExecutor);
         executors.put("decomposer", decomposerExecutor);
         executors.put("judge", judgeExecutor);
-        executors.put("http", httpExecutor);
-        executors.put("web_search", webSearchExecutor);
     }
 
     public NodeExecutor getExecutor(String nodeType) {

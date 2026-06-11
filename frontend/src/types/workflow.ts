@@ -1,6 +1,6 @@
 import { Node, Edge } from 'reactflow';
 
-export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition' | 'decomposer' | 'judge' | 'http' | 'web_search';
+export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition' | 'decomposer' | 'judge';
 
 export type LLMProvider = 'deepseek' | 'qwen' | 'chatglm' | 'aiping';
 
@@ -94,27 +94,7 @@ export interface JudgeNodeData {
   maxRetries?: number;
 }
 
-export interface HttpHeader {
-  key: string;
-  value: string;
-}
-
-export interface HttpNodeData {
-  label: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  url: string;
-  headers: HttpHeader[];
-  body: string;
-  timeout: number;
-}
-
-export interface WebSearchNodeData {
-  label: string;
-  query: string;
-  maxResults: number;
-}
-
-export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData | ConditionNodeData | DecomposerNodeData | JudgeNodeData | HttpNodeData | WebSearchNodeData;
+export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData | ConditionNodeData | DecomposerNodeData | JudgeNodeData;
 
 export type WorkflowNode = Node<CustomNodeData>;
 export type WorkflowEdge = Edge;
