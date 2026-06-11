@@ -122,11 +122,10 @@ public class DecomposerExecutor implements NodeExecutor {
     private String buildDecomposePrompt(String taskDescription) {
         return """
             You are a task decomposition expert. Your job is to break down a complex task into
-            sequential phases (steps). Each phase must be a self-contained unit of work that can
-            be verified independently.
+            phases that can be executed and verified independently.
 
             For each phase, provide:
-            1. A short name
+            1. A short descriptive name
             2. A detailed description of what the worker AI should do
             3. Clear completion criteria that a judge AI can use to verify the phase is done
 
@@ -141,12 +140,29 @@ public class DecomposerExecutor implements NodeExecutor {
               ]
             }
 
-            Rules:
-            - Phases must be sequential (phase 2 depends on phase 1, etc.)
-            - Each phase description should be detailed enough for an AI to execute it
-            - Each criteria should list specific, verifiable conditions
-            - No more than 5 phases
-            - Use the language of the task description
+            CRITICAL DECOMPOSITION RULES:
+            1. Break work by CONTENT STRUCTURE, not by process stage
+               - For writing tasks: one phase per content section/part/chapter (e.g. "第一部分：背景分析撰写" not just "初稿撰写")
+               - For research tasks: one phase per subtopic or dimension
+               - For coding tasks: one phase per module or feature
+               - Avoid generic names like "撰写"/"初稿"/"润色" — include WHAT to write about
+
+            2. Front-load preparation, back-load quality control
+               - First phase(s): preparation (research, outlining, data collection)
+               - Middle phases: the actual content work, broken by topic/section
+               - Last phase(s): polish, review, formatting
+
+            3. Granularity guidelines
+               - A "writing" phase should cover ONE specific topic/section, not all content
+               - If the task has natural subsections (chapters, parts, features), each gets its own phase
+               - More specific, smaller phases > fewer vague, large phases
+               - You may create up to 10 phases if the task warrants it
+
+            4. Each phase execution instruction must include WHAT to produce, not just HOW
+
+            5. Each criteria must be specific and measurable (word count, structure, completeness, accuracy)
+
+            Use the same language as the task description.
 
             Task to decompose:
             """ + taskDescription;

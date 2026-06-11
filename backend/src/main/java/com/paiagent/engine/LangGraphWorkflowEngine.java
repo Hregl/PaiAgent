@@ -2,6 +2,7 @@ package com.paiagent.engine;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.bsc.langgraph4j.CompileConfig;
 import org.bsc.langgraph4j.StateGraph;
 import org.bsc.langgraph4j.action.AsyncEdgeAction;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
@@ -292,12 +293,14 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
             }
         }
 
-        // Compile and invoke
+        // Compile and invoke with increased recursion limit for multi-phase workflows
         Map<String, Object> initialState = new HashMap<>();
         initialState.put("_userInput", userInput);
 
-        // Compile and invoke with retry-cap protection for judge nodes
-        var compiled = graph.compile();
+        var compiled = graph.compile(
+            CompileConfig.builder()
+                .recursionLimit(200)
+                .build());
         var optState = compiled.invoke(initialState);
         AgentState resultState = optState.orElse(new AgentState(initialState));
 

@@ -383,7 +383,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     });
 
-    // Validator LLM node (after last judge)
+    // Validator LLM node (after last judge) — simple validation
     const validatorId = `validator_${++nodeCounter}`;
     const lastJudge = newNodes.filter((n) => n.type === 'judge').pop();
 
@@ -391,7 +391,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       .map((id, idx) => `阶段${idx + 1} (${phases[idx].name}): {{${id}.output}}`)
       .join('\n');
     const validatorPrompt = `你是一个多阶段任务的最终验证专家。以下是一个复杂任务被分解为${phases.length}个阶段后的全部执行结果。\n\n请逐阶段审查并给出最终验证结论：\n- 每个阶段是否达到了预期目标\n- 各阶段成果之间的逻辑一致性\n- 整体任务是否已完成\n\n${phaseSummaries}`;
-    
+
     const validatorNode: Node<CustomNodeData> = {
       id: validatorId,
       type: 'llm',
@@ -421,20 +421,59 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       });
     }
 
+    // Cleanup LLM node — trims unnecessary content from accumulated outputs
+    const cleanupId = `cleanup_${++nodeCounter}`;
+    const cleanupInputs = [
+      ...workerIds.map((id, idx) => `${phases[idx].name} 阶段输出:\n{{${id}.output}}`),
+      `验证结论:\n{{${validatorId}.output}}`,
+    ].join('\n\n');
+    const cleanupPrompt = `你是一个内容的精简编辑。以下是一个多阶段任务的全部执行结果和验证结论。
+
+${cleanupInputs}
+
+请从以上内容中提取和整合出最终的交付成果，要求：
+1. 删除所有过程性描述（如"首先我..."、"接下来..."、"在阶段X完成了..."）
+2. 删除重复的、冗余的内容
+3. 删除验证过程中产生的中间评论
+4. 只保留最终的、实质性的结论和内容
+5. 如果各阶段成果有冲突，以最后阶段的结论为准
+6. 输出格式清晰、直接可用`;
+
+    const cleanupNode: Node<CustomNodeData> = {
+      id: cleanupId,
+      type: 'llm',
+      position: { x: baseX + 840, y: baseY + ((phases.length - 1) * verticalGap) / 2 },
+      data: {
+        label: '内容清理',
+        provider: llmConfigs.validatorProvider,
+        model: llmConfigs.validatorModel,
+        apiBaseUrl: inheritedApiBaseUrl,
+        apiKey: inheritedApiKey,
+        prompt: cleanupPrompt,
+        temperature: 0.3,
+        maxTokens: 2048,
+      },
+    };
+    newNodes.push(cleanupNode);
+
+    // Edge: validator → cleanup
+    newEdges.push({
+      id: `${validatorId}->${cleanupId}`,
+      source: validatorId,
+      target: cleanupId,
+      type: 'smoothstep',
+      animated: true,
+    });
+
     // Remove decomposer node, keep other nodes, add generated ones
     const remainingNodes = state.nodes.filter(
       (n) => n.id !== decomposerNodeId
     );
-    // Discard ALL old edges: decomposition rebuilds the entire graph topology.
-    // Keeping stale edges from previous decompositions causes "edge with sourceId
-    // doesn't exist" errors when the backend can't find referenced nodes.
     const remainingEdges: Edge[] = [];
 
     // Connect the generated chain to Input / Output nodes
     const outputNode = remainingNodes.find((n) => n.type === 'output');
     const firstWorker = newNodes.find((n) => n.type === 'llm');
-
-    // inputNode was already found above for prompt building
 
     if (inputNode && firstWorker) {
       newEdges.push({
@@ -448,15 +487,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     if (outputNode) {
       newEdges.push({
-        id: `${validatorId}->${outputNode.id}`,
-        source: validatorId,
+        id: `${cleanupId}->${outputNode.id}`,
+        source: cleanupId,
         target: outputNode.id,
         type: 'smoothstep',
         animated: true,
       });
     }
 
-    // Rewire Output node to collect all phase results + validator
+    // Rewire Output node — show only the cleaned result
     const updatedRemainingNodes = remainingNodes.map((n) => {
       if (n.type !== 'output') return n;
       const phaseOutputs = workerIds.map((id, idx) => ({
@@ -467,19 +506,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const allOutputs = [
         ...phaseOutputs,
         { paramName: 'validation', paramType: 'reference' as const, value: `${validatorId}.output` },
+        { paramName: 'cleaned', paramType: 'reference' as const, value: `${cleanupId}.output` },
       ];
-      const phaseSections = workerIds
-        .map((_id, idx) => `### 阶段${idx + 1}: ${phases[idx].name}\n\n{{phase_${idx + 1}}}`)
-        .join('\n\n');
-      const responseTemplate =
-        `${phaseSections}\n\n---\n\n### 最终验证\n\n{{validation}}`;
       return {
         ...n,
         data: {
           ...n.data,
           label: '汇总输出',
           outputs: allOutputs,
-          responseTemplate,
+          responseTemplate: '{{cleaned}}',
         },
       };
     });
