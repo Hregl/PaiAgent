@@ -10,7 +10,7 @@ import {
   addEdge,
   Connection,
 } from 'reactflow';
-import { CustomNodeData, LLMProvider, EngineType, Phase, DecomposerNodeData } from '../types/workflow';
+import { CustomNodeData, LLMProvider, EngineType, Phase, DecomposerNodeData, WorkflowSnapshot } from '../types/workflow';
 
 interface GeneratePhaseNodesParams {
   phases: Phase[];
@@ -32,6 +32,8 @@ interface WorkflowState {
   workflowId: string | null;
   workflowName: string;
   engineType: EngineType;
+  past: WorkflowSnapshot[];
+  future: WorkflowSnapshot[];
 
   setNodes: (nodes: Node<CustomNodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
@@ -47,6 +49,15 @@ interface WorkflowState {
   setEngineType: (type: EngineType) => void;
   resetWorkflow: () => void;
   generatePhaseNodes: (params: GeneratePhaseNodesParams) => void;
+  pushHistory: () => void;
+  undo: () => boolean;
+  redo: () => boolean;
+}
+
+const MAX_HISTORY = 50;
+
+function deepClone(obj: { nodes: Node<CustomNodeData>[]; edges: Edge[] }): WorkflowSnapshot {
+  return JSON.parse(JSON.stringify(obj));
 }
 
 let nodeCounter = 0;
@@ -128,11 +139,57 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   workflowId: null,
   workflowName: '',
   engineType: 'langgraph',
+  past: [] as WorkflowSnapshot[],
+  future: [] as WorkflowSnapshot[],
 
-  setNodes: (nodes) => set({ nodes }),
-  setEdges: (edges) => set({ edges }),
+  pushHistory: () => {
+    const { nodes, edges, past } = get();
+    const snapshot = deepClone({ nodes, edges });
+    // Truncate if over limit
+    const updatedPast = past.length >= MAX_HISTORY ? past.slice(1).concat(snapshot) : [...past, snapshot];
+    set({ past: updatedPast, future: [] });
+  },
+
+  undo: () => {
+    const { past, nodes, edges } = get();
+    if (past.length === 0) return false;
+    const prev = past[past.length - 1];
+    set({
+      past: past.slice(0, -1),
+      future: [{ nodes: deepClone({ nodes, edges }).nodes, edges: deepClone({ nodes, edges }).edges }, ...get().future],
+      nodes: prev.nodes,
+      edges: prev.edges,
+    });
+    return true;
+  },
+
+  redo: () => {
+    const { future, nodes, edges } = get();
+    if (future.length === 0) return false;
+    const next = future[0];
+    set({
+      future: future.slice(1),
+      past: [...get().past, { nodes: deepClone({ nodes, edges }).nodes, edges: deepClone({ nodes, edges }).edges }],
+      nodes: next.nodes,
+      edges: next.edges,
+    });
+    return true;
+  },
+
+  setNodes: (nodes) => {
+    get().pushHistory();
+    set({ nodes });
+  },
+  setEdges: (edges) => {
+    get().pushHistory();
+    set({ edges });
+  },
 
   onNodesChange: (changes) => {
+    const hasNonDragChange = changes.some((c) => c.type !== 'position');
+    if (hasNonDragChange) {
+      get().pushHistory();
+    }
     // Block deletion of required input/output nodes
     const filteredChanges = changes.filter((change) => {
       if (change.type === 'remove') {
@@ -147,10 +204,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onEdgesChange: (changes) => {
+    get().pushHistory();
     set({ edges: applyEdgeChanges(changes, get().edges) });
   },
 
   onConnect: (connection: Connection) => {
+    get().pushHistory();
     // Preserve branch label from condition node source handles
     const extraData: Record<string, string> = {};
     if (connection.sourceHandle) {
@@ -161,10 +220,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   addNode: (node) => {
+    get().pushHistory();
     set({ nodes: [...get().nodes, node] });
   },
 
   removeNode: (id) => {
+    get().pushHistory();
     set({
       nodes: get().nodes.filter((n) => n.id !== id),
       edges: get().edges.filter((e) => e.source !== id && e.target !== id),
@@ -173,6 +234,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   updateNodeData: (id, data) => {
+    get().pushHistory();
     set({
       nodes: get().nodes.map((node) =>
         node.id === id ? { ...node, data: { ...node.data, ...data } } : node
@@ -195,10 +257,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       selectedNodeId: null,
       workflowId: null,
       workflowName: '',
+      past: [],
+      future: [],
     });
   },
 
   generatePhaseNodes: ({ phases, decomposerNodeId, llmConfigs }) => {
+    get().pushHistory();
     const state = get();
     const decomposerNode = state.nodes.find((n) => n.id === decomposerNodeId);
     const baseX = (decomposerNode?.position.x ?? 200) + 280;

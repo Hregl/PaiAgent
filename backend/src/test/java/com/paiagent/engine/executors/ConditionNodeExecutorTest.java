@@ -82,4 +82,84 @@ class ConditionNodeExecutorTest {
             Map.of("leftRef", "{{n1.text}}", "operator", "equals", "rightValue", "actual"), ctx);
         assertEquals("true", result.get("branch"));
     }
+
+    @Test
+    void notContainsReturnsTrue() {
+        ctx.setNodeOutput("n1", "text", "hello world");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.text", "operator", "not_contains", "rightValue", "xyz"), ctx);
+        assertEquals("true", result.get("branch"));
+    }
+
+    @Test
+    void notContainsReturnsFalse() {
+        ctx.setNodeOutput("n1", "text", "hello world");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.text", "operator", "not_contains", "rightValue", "hello"), ctx);
+        assertEquals("false", result.get("branch"));
+    }
+
+    @Test
+    void greaterThanReturnsTrue() {
+        ctx.setNodeOutput("n1", "score", "10");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.score", "operator", "greater_than", "rightValue", "5"), ctx);
+        assertEquals("true", result.get("branch"));
+    }
+
+    @Test
+    void greaterThanReturnsFalse() {
+        ctx.setNodeOutput("n1", "score", "3");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.score", "operator", "greater_than", "rightValue", "5"), ctx);
+        assertEquals("false", result.get("branch"));
+    }
+
+    @Test
+    void lessThanReturnsTrue() {
+        ctx.setNodeOutput("n1", "score", "3");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.score", "operator", "less_than", "rightValue", "5"), ctx);
+        assertEquals("true", result.get("branch"));
+    }
+
+    @Test
+    void greaterOrEqualReturnsTrue() {
+        ctx.setNodeOutput("n1", "score", "5");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.score", "operator", "greater_or_equal", "rightValue", "5"), ctx);
+        assertEquals("true", result.get("branch"));
+    }
+
+    @Test
+    void lessOrEqualReturnsTrue() {
+        ctx.setNodeOutput("n1", "score", "5");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.score", "operator", "less_or_equal", "rightValue", "5"), ctx);
+        assertEquals("true", result.get("branch"));
+    }
+
+    @Test
+    void matchesRegexReturnsTrue() {
+        ctx.setNodeOutput("n1", "text", "ABC-1234");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.text", "operator", "matches_regex", "rightValue", "\\w{3}-\\d{4}"), ctx);
+        assertEquals("true", result.get("branch"));
+    }
+
+    @Test
+    void matchesRegexReturnsFalseForNoMatch() {
+        ctx.setNodeOutput("n1", "text", "hello");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.text", "operator", "matches_regex", "rightValue", "\\d+"), ctx);
+        assertEquals("false", result.get("branch"));
+    }
+
+    @Test
+    void invalidRegexReturnsFalse() {
+        ctx.setNodeOutput("n1", "text", "data");
+        Map<String, Object> result = executor.execute(
+            Map.of("leftRef", "n1.text", "operator", "matches_regex", "rightValue", "[unclosed"), ctx);
+        assertEquals("false", result.get("branch"));
+    }
 }

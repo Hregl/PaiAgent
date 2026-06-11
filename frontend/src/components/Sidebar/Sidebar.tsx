@@ -18,6 +18,8 @@ const llmNodes: NodeItemConfig[] = [
 
 const toolNodes: NodeItemConfig[] = [
   { type: 'tts', subtype: 'tts', label: '超拟人音频合成', icon: '🎙️', color: '#f9f0ff' },
+  { type: 'http', subtype: 'http', label: 'HTTP 请求', icon: '🌐', color: '#e6f7ff' },
+  { type: 'web_search', subtype: 'web_search', label: 'Web 搜索', icon: '🔍', color: '#fff7e6' },
 ];
 
 const conditionNode: NodeItemConfig = {

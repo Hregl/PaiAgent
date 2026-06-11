@@ -1,6 +1,6 @@
 import { Node, Edge } from 'reactflow';
 
-export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition' | 'decomposer' | 'judge';
+export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition' | 'decomposer' | 'judge' | 'http' | 'web_search';
 
 export type LLMProvider = 'deepseek' | 'qwen' | 'chatglm' | 'aiping';
 
@@ -53,7 +53,7 @@ export interface OutputNodeData {
   responseTemplate: string;
 }
 
-export type ConditionOperator = 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'is_empty' | 'is_not_empty';
+export type ConditionOperator = 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'is_empty' | 'is_not_empty' | 'greater_than' | 'less_than' | 'greater_or_equal' | 'less_or_equal' | 'matches_regex' | 'not_contains';
 
 export interface ConditionNodeData {
   label: string;
@@ -94,10 +94,46 @@ export interface JudgeNodeData {
   maxRetries?: number;
 }
 
-export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData | ConditionNodeData | DecomposerNodeData | JudgeNodeData;
+export interface HttpHeader {
+  key: string;
+  value: string;
+}
+
+export interface HttpNodeData {
+  label: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  url: string;
+  headers: HttpHeader[];
+  body: string;
+  timeout: number;
+}
+
+export interface WebSearchNodeData {
+  label: string;
+  query: string;
+  maxResults: number;
+}
+
+export type CustomNodeData = LLMNodeData | TTSNodeData | InputNodeData | OutputNodeData | ConditionNodeData | DecomposerNodeData | JudgeNodeData | HttpNodeData | WebSearchNodeData;
 
 export type WorkflowNode = Node<CustomNodeData>;
 export type WorkflowEdge = Edge;
+
+export interface WorkflowSnapshot {
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
+
+export interface ExportPayload {
+  version: number;
+  exportedAt: string;
+  workflow: {
+    name: string;
+    engineType: EngineType;
+    nodes: WorkflowNode[];
+    edges: WorkflowEdge[];
+  };
+}
 
 export interface WorkflowDefinition {
   nodes: WorkflowNode[];

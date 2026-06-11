@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Evaluates a condition and returns which branch to follow ("true" or "false").
@@ -71,10 +73,34 @@ public class ConditionNodeExecutor implements NodeExecutor {
             case "starts_with" -> left.startsWith(right);
             case "is_empty" -> left.isEmpty();
             case "is_not_empty" -> !left.isEmpty();
+            case "not_contains" -> !left.contains(right);
+            case "greater_than" -> compareNumeric(left, right) > 0;
+            case "less_than" -> compareNumeric(left, right) < 0;
+            case "greater_or_equal" -> compareNumeric(left, right) >= 0;
+            case "less_or_equal" -> compareNumeric(left, right) <= 0;
+            case "matches_regex" -> {
+                try {
+                    yield Pattern.compile(right).matcher(left).find();
+                } catch (PatternSyntaxException e) {
+                    log.warn("matches_regex: invalid regex '{}': {}", right, e.getMessage());
+                    yield false;
+                }
+            }
             default -> {
                 log.warn("Unknown operator: {}, defaulting to false", operator);
                 yield false;
             }
         };
+    }
+
+    private int compareNumeric(String a, String b) {
+        try {
+            double da = Double.parseDouble(a);
+            double db = Double.parseDouble(b);
+            return Double.compare(da, db);
+        } catch (NumberFormatException e) {
+            log.warn("Cannot compare as numbers: '{}' vs '{}'", a, b);
+            return 0; // fallback: equal if unparseable
+        }
     }
 }

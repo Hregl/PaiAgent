@@ -9,6 +9,12 @@ const operatorLabels: Record<string, string> = {
   starts_with: '开头是',
   is_empty: '为空',
   is_not_empty: '非空',
+  greater_than: '>',
+  less_than: '<',
+  greater_or_equal: '>=',
+  less_or_equal: '<=',
+  matches_regex: '正则匹配',
+  not_contains: '不包含',
 };
 
 function ConditionNode({ data, selected }: NodeProps<ConditionNodeData>) {

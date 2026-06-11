@@ -404,9 +404,15 @@ export default function ConfigPanel() {
                 <Select.Option value="equals">等于 (==)</Select.Option>
                 <Select.Option value="not_equals">不等于 (!=)</Select.Option>
                 <Select.Option value="contains">包含</Select.Option>
+                <Select.Option value="not_contains">不包含</Select.Option>
                 <Select.Option value="starts_with">开头是</Select.Option>
                 <Select.Option value="is_empty">为空</Select.Option>
                 <Select.Option value="is_not_empty">非空</Select.Option>
+                <Select.Option value="greater_than">大于 (&gt;)</Select.Option>
+                <Select.Option value="less_than">小于 (&lt;)</Select.Option>
+                <Select.Option value="greater_or_equal">大于等于 (&gt;=)</Select.Option>
+                <Select.Option value="less_or_equal">小于等于 (&lt;=)</Select.Option>
+                <Select.Option value="matches_regex">正则匹配</Select.Option>
               </Select>
             </Form.Item>
             <Form.Item
@@ -418,9 +424,16 @@ export default function ConfigPanel() {
                 if (operator === 'is_empty' || operator === 'is_not_empty') {
                   return null;
                 }
+                const placeholders: Record<string, string> = {
+                  matches_regex: '输入正则表达式，例如: \\d{3}-\\d{4}',
+                  greater_than: '输入数值',
+                  less_than: '输入数值',
+                  greater_or_equal: '输入数值',
+                  less_or_equal: '输入数值',
+                };
                 return (
                   <Form.Item label="右侧值" name="rightValue" extra="与左侧引用比较的值">
-                    <Input placeholder="输入比较值..." />
+                    <Input placeholder={placeholders[operator] || '输入比较值...'} />
                   </Form.Item>
                 );
               }}
@@ -552,6 +565,103 @@ export default function ConfigPanel() {
             </Form.Item>
             <Form.Item label="最大重试" name="maxRetries" extra="不通过时最多重试次数">
               <InputNumber min={1} max={10} style={{ width: '100%' }} />
+            </Form.Item>
+          </>
+        );
+      case 'http':
+        return (
+          <>
+            <Form.Item label="请求方法" name="method">
+              <Select>
+                <Select.Option value="GET">GET</Select.Option>
+                <Select.Option value="POST">POST</Select.Option>
+                <Select.Option value="PUT">PUT</Select.Option>
+                <Select.Option value="DELETE">DELETE</Select.Option>
+              </Select>
+            </Form.Item>
+            <Form.Item label="URL" name="url" rules={[{ required: true, message: '请输入 URL' }]}>
+              <Input placeholder="https://api.example.com/data" />
+            </Form.Item>
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
+              请求头
+            </Divider>
+            <Form.List name="headers">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name }) => (
+                    <div
+                      key={key}
+                      style={{
+                        marginBottom: 8,
+                        padding: 8,
+                        background: '#fafafa',
+                        borderRadius: 6,
+                        display: 'flex',
+                        gap: 8,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Form.Item
+                        name={[name, 'key']}
+                        style={{ flex: 1, marginBottom: 0 }}
+                        rules={[{ required: true, message: '必填' }]}
+                      >
+                        <Input placeholder="Key" />
+                      </Form.Item>
+                      <Form.Item
+                        name={[name, 'value']}
+                        style={{ flex: 2, marginBottom: 0 }}
+                      >
+                        <Input placeholder="Value" />
+                      </Form.Item>
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        onClick={() => remove(name)}
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    type="dashed"
+                    onClick={() => add({ key: '', value: '' })}
+                    block
+                    icon={<PlusOutlined />}
+                    size="small"
+                  >
+                    添加请求头
+                  </Button>
+                </>
+              )}
+            </Form.List>
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, cur) => prev.method !== cur.method}
+            >
+              {({ getFieldValue }) => {
+                const method = getFieldValue('method') || 'GET';
+                if (method !== 'POST' && method !== 'PUT') return null;
+                return (
+                  <Form.Item label="请求体" name="body">
+                    <TextArea rows={4} placeholder='{"key":"value"}' />
+                  </Form.Item>
+                );
+              }}
+            </Form.Item>
+            <Form.Item label="超时 (ms)" name="timeout">
+              <InputNumber min={100} max={120000} style={{ width: '100%' }} />
+            </Form.Item>
+          </>
+        );
+      case 'web_search':
+        return (
+          <>
+            <Form.Item label="搜索查询" name="query" rules={[{ required: true, message: '请输入搜索查询' }]}>
+              <TextArea rows={3} placeholder="输入搜索关键词..." />
+            </Form.Item>
+            <Form.Item label="最大结果数" name="maxResults">
+              <InputNumber min={1} max={20} style={{ width: '100%' }} />
             </Form.Item>
           </>
         );

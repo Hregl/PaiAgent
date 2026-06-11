@@ -9,6 +9,10 @@ import {
   CaretRightOutlined,
   PlayCircleOutlined,
   DeleteOutlined,
+  UndoOutlined,
+  RedoOutlined,
+  ExportOutlined,
+  ImportOutlined,
 } from '@ant-design/icons';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { useAuthStore } from '../../store/authStore';
@@ -17,11 +21,11 @@ import { workflowApi } from '../../api/workflow';
 import { executionApi } from '../../api/execution';
 import { configApi } from '../../api/config';
 import { message } from 'antd';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Workflow, ExecutionResult, EngineType } from '../../types/workflow';
 
 export default function TopBar() {
-  const { workflowName, setWorkflowName, workflowId, setWorkflowId, nodes, edges, resetWorkflow, setNodes, setEdges, engineType, setEngineType } =
+  const { workflowName, setWorkflowName, workflowId, setWorkflowId, nodes, edges, resetWorkflow, setNodes, setEdges, engineType, setEngineType, past, future, undo, redo } =
     useWorkflowStore();
   const { user, logout } = useAuthStore();
   const { openDrawer } = useDebugStore();
@@ -35,6 +39,8 @@ export default function TopBar() {
   const [executeLoading, setExecuteLoading] = useState(false);
   const [executeError, setExecuteError] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Load current engine type from backend on mount
   useEffect(() => {
     configApi.getEngineType().then((res: unknown) => {
@@ -46,6 +52,70 @@ export default function TopBar() {
       // Keep default if backend unavailable
     });
   }, [setEngineType]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        useWorkflowStore.getState().undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y' || (e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        useWorkflowStore.getState().redo();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const handleExport = useCallback(() => {
+    const state = useWorkflowStore.getState();
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      workflow: {
+        name: state.workflowName || '未命名工作流',
+        engineType: state.engineType,
+        nodes: state.nodes,
+        edges: state.edges,
+      },
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${state.workflowName || 'workflow'}.paiagent.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    message.success('导出成功');
+  }, []);
+
+  const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json = JSON.parse(ev.target?.result as string);
+        if (!json.workflow?.nodes || !json.workflow?.edges) {
+          message.error('无效的工作流文件格式');
+          return;
+        }
+        const store = useWorkflowStore.getState();
+        store.setNodes(json.workflow.nodes);
+        store.setEdges(json.workflow.edges);
+        if (json.workflow.name) store.setWorkflowName(json.workflow.name);
+        if (json.workflow.engineType) store.setEngineType(json.workflow.engineType);
+        store.setWorkflowId(null);
+        message.success(`已导入: ${json.workflow.name || '未命名工作流'}`);
+      } catch {
+        message.error('JSON 解析失败，请检查文件格式');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }, []);
 
   const handleEngineSwitch = (type: EngineType) => {
     configApi.setEngineType(type).then(() => {
@@ -183,9 +253,28 @@ export default function TopBar() {
           <Button icon={<PlusOutlined />} onClick={handleNew}>
             新建
           </Button>
+          <Button icon={<UndoOutlined />} onClick={undo} disabled={past.length === 0}>
+            撤销
+          </Button>
+          <Button icon={<RedoOutlined />} onClick={redo} disabled={future.length === 0}>
+            重做
+          </Button>
           <Button icon={<FolderOpenOutlined />} onClick={handleLoad}>
             加载
           </Button>
+          <Button icon={<ImportOutlined />} onClick={() => fileInputRef.current?.click()}>
+            导入
+          </Button>
+          <Button icon={<ExportOutlined />} onClick={handleExport}>
+            导出
+          </Button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImport}
+            accept=".json"
+            style={{ display: 'none' }}
+          />
           <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
             保存
           </Button>

@@ -27,6 +27,10 @@ class DagWorkflowEngineTest {
     private DecomposerExecutor decomposerExecutor;
     @Mock
     private JudgeNodeExecutor judgeExecutor;
+    @Mock
+    private HttpNodeExecutor httpExecutor;
+    @Mock
+    private WebSearchNodeExecutor webSearchExecutor;
 
     private DagWorkflowEngine engine;
     private ObjectMapper objectMapper;
@@ -34,7 +38,8 @@ class DagWorkflowEngineTest {
     @BeforeEach
     void setUp() {
         NodeExecutorFactory factory = new NodeExecutorFactory(
-            llmExecutor, ttsExecutor, conditionExecutor, decomposerExecutor, judgeExecutor);
+            llmExecutor, ttsExecutor, conditionExecutor, decomposerExecutor, judgeExecutor,
+            httpExecutor, webSearchExecutor);
         objectMapper = new ObjectMapper();
         engine = new DagWorkflowEngine(factory, objectMapper);
     }

@@ -224,4 +224,137 @@ describe('workflowStore', () => {
       expect(outputs?.some((o) => o.paramName === 'validation')).toBe(true);
     });
   });
+
+  describe('undo/redo', () => {
+    it('undo restores previous nodes and edges', () => {
+      const stateBefore = useWorkflowStore.getState();
+      const nodeCount = stateBefore.nodes.length;
+      const edgeCount = stateBefore.edges.length;
+
+      useWorkflowStore.getState().addNode({
+        id: 'undo_test',
+        type: 'llm',
+        position: { x: 100, y: 100 },
+        data: { label: 'Undo Test', provider: 'deepseek', model: 'deepseek-chat', apiBaseUrl: '', apiKey: '', prompt: 'test' },
+      });
+
+      expect(useWorkflowStore.getState().nodes.length).toBe(nodeCount + 1);
+
+      const result = useWorkflowStore.getState().undo();
+      expect(result).toBe(true);
+      expect(useWorkflowStore.getState().nodes.length).toBe(nodeCount);
+      expect(useWorkflowStore.getState().edges.length).toBe(edgeCount);
+    });
+
+    it('undo is no-op when history is empty', () => {
+      resetStore();
+      // Initially no history, so undo should return false
+      const result = useWorkflowStore.getState().undo();
+      expect(result).toBe(false);
+    });
+
+    it('redo restores forward state', () => {
+      // Need to make an action first, then undo it
+      useWorkflowStore.getState().addNode({
+        id: 'redo_test',
+        type: 'llm',
+        position: { x: 200, y: 200 },
+        data: { label: 'Redo Test', provider: 'deepseek', model: 'deepseek-chat', apiBaseUrl: '', apiKey: '', prompt: 'test' },
+      });
+
+      const nodeCount = useWorkflowStore.getState().nodes.length;
+      useWorkflowStore.getState().undo();
+      expect(useWorkflowStore.getState().nodes.length).toBe(nodeCount - 1);
+
+      const result = useWorkflowStore.getState().redo();
+      expect(result).toBe(true);
+      expect(useWorkflowStore.getState().nodes.length).toBe(nodeCount);
+    });
+
+    it('redo is no-op when future is empty', () => {
+      resetStore();
+      const result = useWorkflowStore.getState().redo();
+      expect(result).toBe(false);
+    });
+
+    it('new action after undo clears future', () => {
+      useWorkflowStore.getState().addNode({
+        id: 'future_1',
+        type: 'llm',
+        position: { x: 100, y: 100 },
+        data: { label: 'Future 1', provider: 'deepseek', model: 'deepseek-chat', apiBaseUrl: '', apiKey: '', prompt: '' },
+      });
+
+      useWorkflowStore.getState().undo();
+      // Future should have one entry now
+      expect(useWorkflowStore.getState().future.length).toBe(1);
+
+      // Perform new action — should clear future
+      useWorkflowStore.getState().addNode({
+        id: 'future_2',
+        type: 'llm',
+        position: { x: 200, y: 200 },
+        data: { label: 'Future 2', provider: 'deepseek', model: 'deepseek-chat', apiBaseUrl: '', apiKey: '', prompt: '' },
+      });
+
+      expect(useWorkflowStore.getState().future.length).toBe(0);
+    });
+
+    it('resetWorkflow clears history', () => {
+      useWorkflowStore.getState().addNode({
+        id: 'hist_node',
+        type: 'llm',
+        position: { x: 100, y: 100 },
+        data: { label: 'Hist', provider: 'deepseek', model: 'deepseek-chat', apiBaseUrl: '', apiKey: '', prompt: '' },
+      });
+
+      expect(useWorkflowStore.getState().past.length).toBeGreaterThan(0);
+
+      resetStore();
+
+      expect(useWorkflowStore.getState().past.length).toBe(0);
+      expect(useWorkflowStore.getState().future.length).toBe(0);
+    });
+
+    it('updateNodeData is undoable', () => {
+      const state = useWorkflowStore.getState();
+      const llmNode = state.nodes.find((n) => n.type === 'llm');
+      expect(llmNode).toBeDefined();
+
+      useWorkflowStore.getState().updateNodeData(llmNode!.id, { label: 'New Label' });
+
+      const updated = useWorkflowStore.getState().nodes.find((n) => n.id === llmNode!.id);
+      expect(updated?.data.label).toBe('New Label');
+
+      useWorkflowStore.getState().undo();
+
+      const reverted = useWorkflowStore.getState().nodes.find((n) => n.id === llmNode!.id);
+      expect(reverted?.data.label).toBe(llmNode!.data.label);
+    });
+
+    it('removeNode is undoable', () => {
+      const state = useWorkflowStore.getState();
+      const llmNode = state.nodes.find((n) => n.type === 'llm');
+      expect(llmNode).toBeDefined();
+
+      useWorkflowStore.getState().removeNode(llmNode!.id);
+
+      expect(useWorkflowStore.getState().nodes.find((n) => n.id === llmNode!.id)).toBeUndefined();
+
+      useWorkflowStore.getState().undo();
+
+      expect(useWorkflowStore.getState().nodes.find((n) => n.id === llmNode!.id)).toBeDefined();
+    });
+
+    it('history respects max limit', () => {
+      // MAX_HISTORY = 50; make 55 sequential changes, past should be capped
+      for (let i = 0; i < 55; i++) {
+        useWorkflowStore.getState().updateNodeData(
+          useWorkflowStore.getState().nodes[0].id,
+          { label: `Changed ${i}` }
+        );
+      }
+      expect(useWorkflowStore.getState().past.length).toBeLessThanOrEqual(50);
+    });
+  });
 });
