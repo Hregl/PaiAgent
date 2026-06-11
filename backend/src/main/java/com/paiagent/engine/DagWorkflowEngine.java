@@ -79,7 +79,7 @@ public class DagWorkflowEngine implements WorkflowEngine {
 
             long nodeStart = System.currentTimeMillis();
             try {
-                NodeExecutor executor = executorFactory.getExecutor(type);
+                NodeExecutor executor = wrapWithRetry(executorFactory.getExecutor(type), data);
                 Map<String, Object> output = executor.execute(data, context);
                 context.setNodeOutputs(nodeId, output);
 
@@ -197,7 +197,7 @@ public class DagWorkflowEngine implements WorkflowEngine {
 
             long nodeStart = System.currentTimeMillis();
             try {
-                NodeExecutor executor = executorFactory.getExecutor(type);
+                NodeExecutor executor = wrapWithRetry(executorFactory.getExecutor(type), data);
                 Map<String, Object> output = executor.execute(data, context);
                 context.setNodeOutputs(nodeId, output);
 
@@ -294,6 +294,17 @@ public class DagWorkflowEngine implements WorkflowEngine {
             throw new IllegalArgumentException("Workflow contains a cycle");
         }
         return order;
+    }
+
+    /**
+     * Wrap an executor with retry/timeout logic if configured in node data.
+     */
+    private NodeExecutor wrapWithRetry(NodeExecutor executor, Map<String, Object> nodeData) {
+        RetryConfig retryConfig = RetryableExecutor.fromNodeData(nodeData);
+        if (retryConfig != null) {
+            return new RetryableExecutor(executor, retryConfig);
+        }
+        return executor;
     }
 
     /**

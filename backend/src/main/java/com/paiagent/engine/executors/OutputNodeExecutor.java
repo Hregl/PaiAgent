@@ -55,7 +55,9 @@ public class OutputNodeExecutor implements NodeExecutor {
             // Fallback: try context-level template resolution
             response = context.resolveTemplate(template);
         }
-        result.put("text", response);
+        if (!response.isEmpty() || !result.containsKey("text")) {
+            result.put("text", response);
+        }
 
         return result;
     }

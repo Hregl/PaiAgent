@@ -143,7 +143,8 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                 long nodeStart = System.currentTimeMillis();
                 try {
                     ExecutionContext ctx = stateToContext(stateMap);
-                    NodeExecutor executor = executorFactory.getExecutor(type);
+                    NodeExecutor rawExecutor = executorFactory.getExecutor(type);
+                    NodeExecutor executor = wrapWithRetry(rawExecutor, data);
                     Map<String, Object> output = executor.execute(data, ctx);
                     long duration = System.currentTimeMillis() - nodeStart;
 
@@ -302,6 +303,14 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
 
         // Convert result with collected nodeLogs
         return convertToResult(resultState, nodeLogs);
+    }
+
+    private NodeExecutor wrapWithRetry(NodeExecutor executor, Map<String, Object> nodeData) {
+        RetryConfig retryConfig = RetryableExecutor.fromNodeData(nodeData);
+        if (retryConfig != null) {
+            return new RetryableExecutor(executor, retryConfig);
+        }
+        return executor;
     }
 
     private String findEntryNodeId(List<Map<String, Object>> nodes, List<Map<String, Object>> edges) {

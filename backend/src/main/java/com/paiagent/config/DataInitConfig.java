@@ -54,6 +54,14 @@ public class DataInitConfig {
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                     "FOREIGN KEY (workflow_id) REFERENCES workflows(id))");
 
+                stmt.execute("CREATE TABLE IF NOT EXISTS app_configs (" +
+                    "config_key VARCHAR(100) PRIMARY KEY," +
+                    "config_value VARCHAR(500))");
+
+                // Seed default engine config
+                stmt.execute("INSERT OR IGNORE INTO app_configs (config_key, config_value) VALUES " +
+                    "('engine.type', 'dag')");
+
                 // Seed admin user if not exists
                 String encodedPassword = passwordEncoder.encode("admin123");
                 stmt.execute("INSERT OR IGNORE INTO users (username, password, role) VALUES " +
