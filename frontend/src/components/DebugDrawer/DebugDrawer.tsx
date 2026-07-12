@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps, Divider, List, Modal } from 'antd';
-import { PlayCircleOutlined, PauseCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, CheckCircleOutlined, CloseCircleOutlined, HistoryOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Drawer, Input, Button, Alert, Spin, Card, Collapse, Tag, Steps, Divider, List, Modal, message } from 'antd';
+import { PlayCircleOutlined, PauseCircleOutlined, SendOutlined, CaretRightOutlined, LoadingOutlined, HistoryOutlined, ReloadOutlined, ClockCircleOutlined, CopyOutlined } from '@ant-design/icons';
 import { useDebugStore } from '../../store/debugStore';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { executionApi } from '../../api/execution';
@@ -9,7 +9,7 @@ import { ExecutionHistoryItem, ExecutionResult } from '../../types/workflow';
 const { TextArea } = Input;
 
 export default function DebugDrawer() {
-  const { isOpen, closeDrawer, input, setInput, result, progressMessages, loading, error, execute } =
+  const { isOpen, closeDrawer, input, setInput, result, progressMessages, latestProgress, loading, error, execute } =
     useDebugStore();
   const workflowId = useWorkflowStore((s) => s.workflowId);
 
@@ -136,67 +136,58 @@ export default function DebugDrawer() {
         )}
       </div>
 
-      {/* Running status — always visible when there are progress messages */}
+      {/* Real-time progress indicator — compact, shows only current node */}
+      {latestProgress && (
+        <Card size="small" style={{ marginTop: 12, marginBottom: 4, background: loading ? '#f0f5ff' : latestProgress.status === 'SUCCESS' ? '#f6ffed' : '#fff2f0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {loading && <LoadingOutlined style={{ color: '#1890ff' }} spin />}
+            {latestProgress.phaseIndex != null && latestProgress.totalPhases != null && (
+              <Tag color="geekblue" style={{ fontSize: 10 }}>阶段{latestProgress.phaseIndex + 1}/{latestProgress.totalPhases}</Tag>
+            )}
+            <Tag color={latestProgress.nodeType === 'llm' ? 'purple' : latestProgress.nodeType === 'judge' ? 'pink' : latestProgress.nodeType === 'tts' ? 'orange' : 'green'} style={{ fontSize: 10 }}>
+              {latestProgress.nodeType === 'llm' ? 'LLM' : latestProgress.nodeType === 'judge' ? '判断' : latestProgress.nodeType === 'tts' ? 'TTS' : '输出'}
+            </Tag>
+            <span style={{ fontWeight: 500, fontSize: 12 }}>{latestProgress.label}</span>
+            <span style={{ color: '#999', fontSize: 11 }}>{latestProgress.message}</span>
+            {latestProgress.durationMs != null && !loading && (
+              <span style={{ color: '#999', fontSize: 11 }}>({latestProgress.durationMs}ms)</span>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Full execution history — Steps for all nodes */}
       {progressMessages.length > 0 && (
-        <Card size="small" title={
-          <span>
-            执行状态
-            {loading && <Tag color="processing" style={{ marginLeft: 8 }}>运行中</Tag>}
-            {!loading && error && <Tag color="error" style={{ marginLeft: 8 }}>失败</Tag>}
-            {!loading && !error && result && <Tag color="success" style={{ marginLeft: 8 }}>已完成</Tag>}
-          </span>
-        } style={{ marginTop: 12, marginBottom: 12 }}>
+        <Card size="small" title="执行历史" style={{ marginTop: 8, marginBottom: 12 }}>
           <Steps
             direction="vertical"
             size="small"
-            current={progressMessages.length - 1}
             items={progressMessages.map((p) => ({
               title: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   {p.phaseIndex != null && p.totalPhases != null && (
-                    <Tag color="geekblue" style={{ fontSize: 11 }}>
-                      阶段 {p.phaseIndex + 1}/{p.totalPhases}
-                    </Tag>
+                    <Tag color="geekblue" style={{ fontSize: 10 }}>阶段{p.phaseIndex + 1}/{p.totalPhases}</Tag>
                   )}
-                  <Tag color={p.nodeType === 'input' ? 'blue' : p.nodeType === 'llm' ? 'purple' : p.nodeType === 'tts' ? 'orange' : p.nodeType === 'judge' ? 'pink' : 'green'}>
-                    {p.nodeType === 'input' ? '输入' : p.nodeType === 'llm' ? 'LLM' : p.nodeType === 'tts' ? 'TTS' : p.nodeType === 'judge' ? '判断' : '输出'}
+                  <Tag color={p.nodeType === 'llm' ? 'purple' : p.nodeType === 'judge' ? 'pink' : p.nodeType === 'tts' ? 'orange' : 'green'} style={{ fontSize: 10 }}>
+                    {p.nodeType === 'llm' ? 'LLM' : p.nodeType === 'judge' ? '判断' : p.nodeType === 'tts' ? 'TTS' : '输出'}
                   </Tag>
-                  <span style={{ fontWeight: 500 }}>{p.label}</span>
-                </span>
-              ),
-              description: (
-                <span>
-                  <span style={{ color: p.status === 'RUNNING' ? '#1890ff' : p.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
-                    {p.status === 'RUNNING' && <LoadingOutlined style={{ marginRight: 4 }} />}
-                    {p.status === 'SUCCESS' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
-                    {p.status === 'FAILED' && <CloseCircleOutlined style={{ marginRight: 4 }} />}
-                    {p.message}
-                    {p.durationMs != null && p.status !== 'RUNNING' && (
-                      <span style={{ color: '#999', marginLeft: 4 }}>({p.durationMs}ms)</span>
-                    )}
-                  </span>
-                  {p.status === 'SUCCESS' && p.confidence != null && (
-                    <Tag color={p.confidence >= 0.7 ? 'green' : p.confidence >= 0.5 ? 'orange' : 'red'} style={{ marginLeft: 6, fontSize: 11 }}>
-                      置信度 {(p.confidence * 100).toFixed(0)}%
+                  <span style={{ fontWeight: 500, fontSize: 12 }}>{p.label}</span>
+                  <span style={{ color: '#999', fontSize: 11 }}>{p.durationMs}ms</span>
+                  {p.confidence != null && (
+                    <Tag color={p.confidence >= 0.7 ? 'green' : p.confidence >= 0.5 ? 'orange' : 'red'} style={{ fontSize: 10 }}>
+                      置信度{(p.confidence * 100).toFixed(0)}%
                     </Tag>
                   )}
-                  {p.status === 'SUCCESS' && p.tokenUsage && p.tokenUsage.totalTokens > 0 && (
-                    <span style={{ color: '#999', fontSize: 11, marginLeft: 6 }}>
-                      🎯 {p.tokenUsage.totalTokens} tokens
-                    </span>
-                  )}
-                  {p.warning && (
-                    <Tag color="warning" style={{ marginLeft: 6 }}>⚠️ {p.warning}</Tag>
-                  )}
+                  {p.warning && <Tag color="warning" style={{ fontSize: 10 }}>⚠️</Tag>}
                 </span>
               ),
-              status: p.status === 'RUNNING' ? 'process' : p.status === 'SUCCESS' ? 'finish' : 'error',
+              status: p.status === 'RUNNING' ? 'process' : p.status === 'SUCCESS' ? 'finish' : 'error' as const,
             }))}
           />
         </Card>
       )}
 
-      {loading && progressMessages.length === 0 && (
+      {loading && !latestProgress && (
         <div style={{ textAlign: 'center', padding: 20, marginTop: 12 }}>
           <Spin size="large" />
           <div style={{ marginTop: 8, color: '#999', fontSize: 13 }}>正在启动执行...</div>
@@ -591,9 +582,24 @@ export default function DebugDrawer() {
       open={resultModalOpen}
       onCancel={() => setResultModalOpen(false)}
       footer={
-        <Button type="primary" onClick={() => setResultModalOpen(false)}>
-          关闭
-        </Button>
+        <>
+          <Button
+            icon={<CopyOutlined />}
+            onClick={() => {
+              const text = result?.output?.text || '';
+              navigator.clipboard.writeText(text).then(() => {
+                message.success('已复制到剪贴板');
+              }).catch(() => {
+                message.error('复制失败');
+              });
+            }}
+          >
+            复制全文
+          </Button>
+          <Button type="primary" onClick={() => setResultModalOpen(false)}>
+            关闭
+          </Button>
+        </>
       }
       width={720}
       style={{ top: 20 }}

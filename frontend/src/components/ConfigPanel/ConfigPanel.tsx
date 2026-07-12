@@ -83,7 +83,7 @@ export default function ConfigPanel() {
       const res = await workflowApi.decompose({
         taskDescription: values.taskDescription,
         provider: values.workerProvider || 'deepseek',
-        model: values.workerModel || 'deepseek-chat',
+        model: values.workerModel || 'deepseek-v4-flash',
         apiKey: values.apiKey || '',
         apiBaseUrl: values.apiBaseUrl || '',
       });
@@ -95,11 +95,11 @@ export default function ConfigPanel() {
 
       const llmConfigs = {
         workerProvider: values.workerProvider || 'deepseek',
-        workerModel: values.workerModel || 'deepseek-chat',
+        workerModel: values.workerModel || 'deepseek-v4-flash',
         judgeProvider: values.judgeProvider || 'deepseek',
-        judgeModel: values.judgeModel || 'deepseek-chat',
+        judgeModel: values.judgeModel || 'deepseek-v4-flash',
         validatorProvider: values.validatorProvider || 'deepseek',
-        validatorModel: values.validatorModel || 'deepseek-chat',
+        validatorModel: values.validatorModel || 'deepseek-v4-flash',
       };
 
       const phases = res.data.phases as Phase[];
@@ -544,7 +544,7 @@ export default function ConfigPanel() {
               </Select>
             </Form.Item>
             <Form.Item label="模型" name="workerModel">
-              <Input placeholder="deepseek-chat" />
+              <Input placeholder="deepseek-v4-flash" />
             </Form.Item>
 
             <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
@@ -559,7 +559,7 @@ export default function ConfigPanel() {
               </Select>
             </Form.Item>
             <Form.Item label="模型" name="judgeModel">
-              <Input placeholder="deepseek-chat" />
+              <Input placeholder="deepseek-v4-flash" />
             </Form.Item>
 
             <Divider orientation="left" plain style={{ fontSize: 12, color: '#999' }}>
@@ -574,7 +574,7 @@ export default function ConfigPanel() {
               </Select>
             </Form.Item>
             <Form.Item label="模型" name="validatorModel">
-              <Input placeholder="deepseek-chat" />
+              <Input placeholder="deepseek-v4-flash" />
             </Form.Item>
 
             <Button
@@ -610,7 +610,7 @@ export default function ConfigPanel() {
               </Select>
             </Form.Item>
             <Form.Item label="模型" name="model">
-              <Input placeholder="deepseek-chat" />
+              <Input placeholder="deepseek-v4-flash" />
             </Form.Item>
             <Form.Item label="上游引用" name="leftRef" extra="引用 Worker 节点的输出进行判断">
               {upstreamRefs.length > 0 ? (

@@ -91,7 +91,6 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
       apiKey: '',
       prompt: `基于以下内容生成一段播客脚本，要求口语化、有吸引力：\n\n{{${inputId}.output}}`,
       temperature: 0.7,
-      maxTokens: 2048,
     },
   };
 
@@ -329,7 +328,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           apiKey: apiKey,
           prompt: workerPrompt,
           temperature: 0.7,
-          maxTokens: 2048,
           phaseIndex: i,
           totalPhases: phases.length,
           phaseName: phase.name,
@@ -413,7 +411,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         apiKey: apiKey,
         prompt: validatorPrompt,
         temperature: 0.3,
-        maxTokens: 2048,
       },
     };
     newNodes.push(validatorNode);
@@ -446,7 +443,8 @@ ${cleanupInputs}
 3. 删除验证过程中产生的中间评论
 4. 只保留最终的、实质性的结论和内容
 5. 如果各阶段成果有冲突，以最后阶段的结论为准
-6. 输出格式清晰、直接可用`;
+6. 输出纯文本，绝对不使用 Markdown 标记（禁止 ###、**、---、* 等）
+7. 直接输出文章正文，不要加任何元描述`;
 
     const cleanupNode: Node<CustomNodeData> = {
       id: cleanupId,
@@ -460,7 +458,6 @@ ${cleanupInputs}
         apiKey: apiKey,
         prompt: cleanupPrompt,
         temperature: 0.3,
-        maxTokens: 2048,
       },
     };
     newNodes.push(cleanupNode);
@@ -474,9 +471,9 @@ ${cleanupInputs}
       animated: true,
     });
 
-    // Remove any decomposer nodes from canvas, keep other nodes, add generated ones
+    // Keep only Input / Output / non-LLM-TTS nodes (remove old orphaned nodes)
     const remainingNodes = state.nodes.filter(
-      (n) => n.type !== 'decomposer'
+      (n) => n.type === 'input' || n.type === 'output'
     );
     const remainingEdges: Edge[] = [];
 

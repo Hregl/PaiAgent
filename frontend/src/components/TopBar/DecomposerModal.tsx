@@ -38,7 +38,7 @@ export default function DecomposerModal({ open, onClose }: DecomposerModalProps)
       const res = await workflowApi.decompose({
         taskDescription: values.taskDescription,
         provider: values.workerProvider || 'deepseek',
-        model: values.workerModel || 'deepseek-chat',
+        model: values.workerModel || 'deepseek-v4-flash',
         apiKey: values.apiKey || '',
         apiBaseUrl: values.apiBaseUrl || '',
       });
@@ -115,11 +115,11 @@ export default function DecomposerModal({ open, onClose }: DecomposerModalProps)
       phases: confirmedPhases,
       llmConfigs: {
         workerProvider: (configValues.workerProvider || 'deepseek') as LLMProvider,
-        workerModel: configValues.workerModel || 'deepseek-chat',
+        workerModel: configValues.workerModel || 'deepseek-v4-flash',
         judgeProvider: (configValues.judgeProvider || 'deepseek') as LLMProvider,
-        judgeModel: configValues.judgeModel || 'deepseek-chat',
+        judgeModel: configValues.judgeModel || 'deepseek-v4-flash',
         validatorProvider: (configValues.validatorProvider || 'deepseek') as LLMProvider,
-        validatorModel: configValues.validatorModel || 'deepseek-chat',
+        validatorModel: configValues.validatorModel || 'deepseek-v4-flash',
       },
       inheritedApiKey: configValues.apiKey || '',
       inheritedApiBaseUrl: configValues.apiBaseUrl || '',

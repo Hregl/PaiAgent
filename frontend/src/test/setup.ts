@@ -46,4 +46,4 @@ class MockEventSource {
 
 // Suppress window.location.href assignment errors
 delete (window as unknown as Record<string, unknown>).location;
-window.location = { href: '' } as Location;
+(window as unknown as Record<string, unknown>).location = { href: '' };

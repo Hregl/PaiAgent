@@ -155,7 +155,7 @@ public class JudgeNodeExecutor implements NodeExecutor {
 
     private String getFallbackModel(String provider) {
         return switch (provider) {
-            case "deepseek" -> "deepseek-chat";
+            case "deepseek" -> "deepseek-v4-flash";
             case "qwen" -> "qwen-turbo";
             case "chatglm" -> "glm-4-flash";
             default -> "";

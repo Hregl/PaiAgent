@@ -91,7 +91,7 @@ public class WorkflowController {
     @PostMapping("/decompose")
     public ApiResponse<Object> decompose(@Valid @RequestBody DecomposeRequest request) {
         String provider = request.getProvider() != null ? request.getProvider() : "deepseek";
-        String model = request.getModel() != null ? request.getModel() : "deepseek-chat";
+        String model = request.getModel() != null ? request.getModel() : "deepseek-v4-flash";
         String apiKey = request.getApiKey();
         String apiBaseUrl = request.getApiBaseUrl();
 
@@ -109,7 +109,7 @@ public class WorkflowController {
     public ApiResponse<Object> generateDescription(@RequestBody Map<String, String> body) {
         String topic = body.get("topic");
         String provider = body.getOrDefault("provider", "deepseek");
-        String model = body.getOrDefault("model", "deepseek-chat");
+        String model = body.getOrDefault("model", "deepseek-v4-flash");
         String apiKey = body.getOrDefault("apiKey", "");
         String apiBaseUrl = body.getOrDefault("apiBaseUrl", "");
 

@@ -26,15 +26,17 @@ public class LLMNodeExecutor implements NodeExecutor {
         String apiBaseUrl = (String) nodeData.getOrDefault("apiBaseUrl", "");
         Double temperature = nodeData.get("temperature") != null ?
                 ((Number) nodeData.get("temperature")).doubleValue() : 0.7;
-        Integer maxTokens = nodeData.get("maxTokens") != null ?
-                ((Number) nodeData.get("maxTokens")).intValue() : 2048;
+        Integer maxTokens = nodeData.get("maxTokens") instanceof Number n && n.intValue() > 0
+                ? n.intValue() : null;
 
         String resolvedPrompt = context.resolveTemplate(promptTemplate);
 
         Map<String, Object> config = new HashMap<>();
         config.put("model", model);
         config.put("temperature", temperature);
-        config.put("maxTokens", maxTokens);
+        if (maxTokens != null) {
+            config.put("maxTokens", maxTokens);
+        }
 
         SpringAiChatService.ChatResult result = chatService.chatWithUsage(
             provider, resolvedPrompt, config, apiKey, apiBaseUrl);

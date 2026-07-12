@@ -214,7 +214,7 @@ public class ExecutionController {
             });
 
             // Keep connection alive until async task completes
-            latch.await(5, TimeUnit.MINUTES);
+            latch.await(10, TimeUnit.MINUTES);
             writer.close();
         } catch (Exception e) {
             log.error("SSE stream error", e);

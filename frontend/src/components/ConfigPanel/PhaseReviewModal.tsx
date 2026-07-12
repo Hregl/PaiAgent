@@ -56,7 +56,7 @@ export default function PhaseReviewModal({ open, phases: initialPhases, onConfir
         <Form.List name="phases">
           {(fields, { add, remove, move }) => (
             <>
-              {fields.map(({ key, name, ...rest }, index) => (
+              {fields.map(({ key, name }, index) => (
                 <div
                   key={key}
                   style={{

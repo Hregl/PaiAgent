@@ -184,17 +184,17 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
         apiKey: '',
         apiBaseUrl: '',
         workerProvider: 'deepseek' as LLMProvider,
-        workerModel: 'deepseek-chat',
+        workerModel: 'deepseek-v4-flash',
         judgeProvider: 'deepseek' as LLMProvider,
-        judgeModel: 'deepseek-chat',
+        judgeModel: 'deepseek-v4-flash',
         validatorProvider: 'deepseek' as LLMProvider,
-        validatorModel: 'deepseek-chat',
+        validatorModel: 'deepseek-v4-flash',
       };
     case 'judge':
       return {
         label: 'AI 判断',
         provider: 'deepseek' as LLMProvider,
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
         apiKey: '',
         apiBaseUrl: '',
         leftRef: '',

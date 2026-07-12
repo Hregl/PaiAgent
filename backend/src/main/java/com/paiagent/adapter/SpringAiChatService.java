@@ -86,14 +86,18 @@ public class SpringAiChatService {
 
         String model = (String) config.getOrDefault("model", "");
         double temperature = ((Number) config.getOrDefault("temperature", 0.7)).doubleValue();
-        int maxTokens = ((Number) config.getOrDefault("maxTokens", 2048)).intValue();
+        Object maxTokensObj = config.get("maxTokens");
+
+        var optionsBuilder = OpenAiChatOptions.builder()
+                .model(model)
+                .temperature(temperature);
+        if (maxTokensObj instanceof Number n && n.intValue() > 0) {
+            optionsBuilder.maxTokens(n.intValue());
+        }
+        // No maxTokens = let LLM use its own default ceiling
 
         UserMessage userMessage = new UserMessage(prompt);
-        Prompt chatPrompt = new Prompt(userMessage, OpenAiChatOptions.builder()
-                .model(model)
-                .temperature(temperature)
-                .maxTokens(maxTokens)
-                .build());
+        Prompt chatPrompt = new Prompt(userMessage, optionsBuilder.build());
 
         try {
             ChatResponse response = client.prompt(chatPrompt).call().chatResponse();
@@ -129,14 +133,18 @@ public class SpringAiChatService {
 
         String model = (String) config.getOrDefault("model", "");
         double temperature = ((Number) config.getOrDefault("temperature", 0.7)).doubleValue();
-        int maxTokens = ((Number) config.getOrDefault("maxTokens", 2048)).intValue();
+        Object maxTokensObj = config.get("maxTokens");
+
+        var optionsBuilder = OpenAiChatOptions.builder()
+                .model(model)
+                .temperature(temperature);
+        if (maxTokensObj instanceof Number n && n.intValue() > 0) {
+            optionsBuilder.maxTokens(n.intValue());
+        }
+        // No maxTokens = let LLM use its own default ceiling
 
         UserMessage userMessage = new UserMessage(prompt);
-        Prompt chatPrompt = new Prompt(userMessage, OpenAiChatOptions.builder()
-                .model(model)
-                .temperature(temperature)
-                .maxTokens(maxTokens)
-                .build());
+        Prompt chatPrompt = new Prompt(userMessage, optionsBuilder.build());
 
         return client.prompt(chatPrompt).stream().content();
     }

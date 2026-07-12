@@ -58,9 +58,10 @@ describe('workflowStore', () => {
 
       useWorkflowStore.getState().removeNode(firstLlm!.id);
 
-      const { nodes, edges } = useWorkflowStore.getState();
+      const { nodes } = useWorkflowStore.getState();
       expect(nodes.find((n) => n.id === firstLlm!.id)).toBeUndefined();
-      expect(edges.filter((e) => e.source === firstLlm!.id || e.target === firstLlm!.id)).toHaveLength(0);
+      const storeEdges = useWorkflowStore.getState().edges;
+      expect(storeEdges.filter((e) => e.source === firstLlm!.id || e.target === firstLlm!.id)).toHaveLength(0);
     });
 
     it('blocks deletion of input and output nodes', () => {
@@ -155,7 +156,8 @@ describe('workflowStore', () => {
 
       useWorkflowStore.getState().generatePhaseNodes({
         phases: samplePhases,
-        decomposerNodeId: 'decomp_1',
+        inheritedApiKey: '',
+        inheritedApiBaseUrl: '',
         llmConfigs: {
           workerProvider: 'deepseek',
           workerModel: 'deepseek-chat',
@@ -166,7 +168,7 @@ describe('workflowStore', () => {
         },
       });
 
-      const { nodes, edges } = useWorkflowStore.getState();
+      const { nodes } = useWorkflowStore.getState();
 
       // Decomposer should be gone
       expect(nodes.find((n) => n.id === 'decomp_1')).toBeUndefined();
@@ -203,7 +205,8 @@ describe('workflowStore', () => {
 
       useWorkflowStore.getState().generatePhaseNodes({
         phases: samplePhases,
-        decomposerNodeId: 'decomp_2',
+        inheritedApiKey: '',
+        inheritedApiBaseUrl: '',
         llmConfigs: {
           workerProvider: 'deepseek',
           workerModel: 'deepseek-chat',
@@ -218,7 +221,8 @@ describe('workflowStore', () => {
       const outputNode = nodes.find((n) => n.type === 'output');
       expect(outputNode).toBeDefined();
       // Output should have phase references
-      const outputs = outputNode?.data.outputs as Array<{ paramName: string }> | undefined;
+      const data = outputNode?.data as { outputs?: Array<{ paramName: string }> } | undefined;
+      const outputs = data?.outputs;
       expect(outputs?.some((o) => o.paramName === 'phase_1')).toBe(true);
       expect(outputs?.some((o) => o.paramName === 'phase_2')).toBe(true);
       expect(outputs?.some((o) => o.paramName === 'validation')).toBe(true);

@@ -81,7 +81,7 @@ public class DecomposerExecutor implements NodeExecutor {
                                           String apiKey, String apiBaseUrl) {
         String prompt = buildDecomposePrompt(taskDescription);
         Map<String, Object> config = new HashMap<>();
-        config.put("model", model != null && !model.isEmpty() ? model : "deepseek-chat");
+        config.put("model", model != null && !model.isEmpty() ? model : "deepseek-v4-flash");
         config.put("temperature", 0.3);
         // No maxTokens cap — LLM uses its own default ceiling to avoid truncation
 

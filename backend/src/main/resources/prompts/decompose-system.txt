@@ -33,7 +33,8 @@ CRITICAL DECOMPOSITION RULES:
    - A "writing" phase should cover ONE specific topic/section, not all content
    - If the task has natural subsections (chapters, parts, features), each gets its own phase
    - More specific, smaller phases > fewer vague, large phases
-   - You may create up to 10 phases if the task warrants it
+   - Maximum 4 phases — prefer quality over quantity
+   - Each phase should cover substantial work that warrants a full LLM call
 
 4. Each phase execution instruction must include WHAT to produce, not just HOW
 
