@@ -21,4 +21,7 @@ export const workflowApi = {
   decompose(data: { taskDescription: string; provider?: string; model?: string; apiKey?: string; apiBaseUrl?: string }): Promise<ApiResponse<{ phases: Phase[] }>> {
     return api.post('/workflows/decompose', data);
   },
+  generateDescription(data: { topic: string; provider?: string; model?: string; apiKey?: string; apiBaseUrl?: string }): Promise<ApiResponse<{ description: string }>> {
+    return api.post('/workflows/generate-description', data);
+  },
 };

@@ -4,7 +4,7 @@ import { Form, Input, Select, InputNumber, Button, Divider, message, Checkbox } 
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { Node } from 'reactflow';
-import { CustomNodeData, Phase } from '../../types/workflow';
+import { CustomNodeData, Phase, LLMProvider, MODELS_BY_PROVIDER } from '../../types/workflow';
 import { workflowApi } from '../../api/workflow';
 import { configApi } from '../../api/config';
 import PhaseReviewModal from './PhaseReviewModal';
@@ -129,10 +129,21 @@ export default function ConfigPanel() {
   const handlePhaseConfirm = (phases: Phase[]) => {
     if (!pendingDecomposeConfig) return;
     const store = useWorkflowStore.getState();
+    // Get API credentials from the decomposer node
+    const decomposerNode = store.nodes.find((n) => n.id === pendingDecomposeConfig.decomposerNodeId);
+    const nodeData = decomposerNode?.data as { apiKey?: string; apiBaseUrl?: string } | undefined;
     store.generatePhaseNodes({
       phases,
-      decomposerNodeId: pendingDecomposeConfig.decomposerNodeId,
-      llmConfigs: pendingDecomposeConfig.llmConfigs,
+      llmConfigs: {
+        workerProvider: pendingDecomposeConfig.llmConfigs.workerProvider as LLMProvider,
+        workerModel: pendingDecomposeConfig.llmConfigs.workerModel,
+        judgeProvider: pendingDecomposeConfig.llmConfigs.judgeProvider as LLMProvider,
+        judgeModel: pendingDecomposeConfig.llmConfigs.judgeModel,
+        validatorProvider: pendingDecomposeConfig.llmConfigs.validatorProvider as LLMProvider,
+        validatorModel: pendingDecomposeConfig.llmConfigs.validatorModel,
+      },
+      inheritedApiKey: nodeData?.apiKey || '',
+      inheritedApiBaseUrl: nodeData?.apiBaseUrl || '',
     });
 
     // Switch engine to LangGraph: decomposed workflows need conditional edges
@@ -168,8 +179,24 @@ export default function ConfigPanel() {
             <Form.Item label="API 密钥" name="apiKey">
               <Input.Password placeholder="sk-xxxxxxxx" />
             </Form.Item>
-            <Form.Item label="模型" name="model">
-              <Input placeholder="例如: deepseek-chat, qwen-turbo" />
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, cur) => prev.provider !== cur.provider}
+            >
+              {({ getFieldValue }) => {
+                const p = (getFieldValue('provider') || 'deepseek') as LLMProvider;
+                return (
+                  <Form.Item label="模型" name="model">
+                    <Select placeholder="选择模型">
+                      {(MODELS_BY_PROVIDER[p] || MODELS_BY_PROVIDER.deepseek).map(m => (
+                        <Select.Option key={m.value} value={m.value} disabled={m.deprecated}>
+                          {m.label}{m.deprecated ? ' (弃用)' : ''}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                );
+              }}
             </Form.Item>
             <Form.Item label="提示词" name="prompt">
               <TextArea rows={4} placeholder="使用 {{nodeId.output}} 引用上游输出" />

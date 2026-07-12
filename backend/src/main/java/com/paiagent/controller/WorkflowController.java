@@ -2,6 +2,7 @@ package com.paiagent.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.paiagent.adapter.SpringAiChatService;
 import com.paiagent.engine.executors.DecomposerExecutor;
 import com.paiagent.model.dto.ApiResponse;
 import com.paiagent.model.dto.DecomposeRequest;
@@ -10,12 +11,14 @@ import com.paiagent.model.entity.User;
 import com.paiagent.model.entity.Workflow;
 import com.paiagent.repository.UserRepository;
 import com.paiagent.repository.WorkflowRepository;
+import com.paiagent.util.PromptLoader;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,13 +31,18 @@ public class WorkflowController {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final DecomposerExecutor decomposerExecutor;
+    private final SpringAiChatService chatService;
+    private final PromptLoader promptLoader;
 
     public WorkflowController(WorkflowRepository workflowRepository, UserRepository userRepository,
-                              ObjectMapper objectMapper, DecomposerExecutor decomposerExecutor) {
+                              ObjectMapper objectMapper, DecomposerExecutor decomposerExecutor,
+                              SpringAiChatService chatService, PromptLoader promptLoader) {
         this.workflowRepository = workflowRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.decomposerExecutor = decomposerExecutor;
+        this.chatService = chatService;
+        this.promptLoader = promptLoader;
     }
 
     @GetMapping
@@ -95,6 +103,33 @@ public class WorkflowController {
         }
 
         return ApiResponse.success(Map.of("phases", result.phases));
+    }
+
+    @PostMapping("/generate-description")
+    public ApiResponse<Object> generateDescription(@RequestBody Map<String, String> body) {
+        String topic = body.get("topic");
+        String provider = body.getOrDefault("provider", "deepseek");
+        String model = body.getOrDefault("model", "deepseek-chat");
+        String apiKey = body.getOrDefault("apiKey", "");
+        String apiBaseUrl = body.getOrDefault("apiBaseUrl", "");
+
+        if (topic == null || topic.isBlank()) {
+            return ApiResponse.error(400, "Topic is required");
+        }
+
+        String prompt = promptLoader.render("expand-topic", Map.of()) + topic;
+        Map<String, Object> config = new HashMap<>();
+        config.put("model", !model.isBlank() ? model : "deepseek-v4-flash");
+        config.put("temperature", 0.7);
+
+        try {
+            var result = chatService.chatWithUsage(provider, prompt, config,
+                !apiKey.isBlank() ? apiKey : null,
+                !apiBaseUrl.isBlank() ? apiBaseUrl : null);
+            return ApiResponse.success(Map.of("description", result.content()));
+        } catch (Exception e) {
+            return ApiResponse.error(500, "生成失败: " + e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")

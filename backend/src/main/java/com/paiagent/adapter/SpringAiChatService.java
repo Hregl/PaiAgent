@@ -26,7 +26,7 @@ public class SpringAiChatService {
 
     @Value("${llm.deepseek.api-key:}")
     private String deepseekApiKey;
-    @Value("${llm.deepseek.base-url:https://api.deepseek.com/v1}")
+    @Value("${llm.deepseek.base-url:https://api.deepseek.com}")
     private String deepseekBaseUrl;
 
     @Value("${llm.qwen.api-key:}")

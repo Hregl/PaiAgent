@@ -4,6 +4,36 @@ export type NodeType = 'input' | 'output' | 'llm' | 'tts' | 'condition' | 'decom
 
 export type LLMProvider = 'deepseek' | 'qwen' | 'chatglm' | 'aiping';
 
+/** Available models per LLM provider */
+export const MODELS_BY_PROVIDER: Record<LLMProvider, { value: string; label: string; deprecated?: boolean }[]> = {
+  deepseek: [
+    { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash (推荐)' },
+    { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+    { value: 'deepseek-chat', label: 'DeepSeek Chat', deprecated: true },
+    { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner', deprecated: true },
+  ],
+  qwen: [
+    { value: 'qwen-turbo', label: 'Qwen Turbo' },
+    { value: 'qwen-plus', label: 'Qwen Plus' },
+    { value: 'qwen-max', label: 'Qwen Max' },
+  ],
+  chatglm: [
+    { value: 'glm-4-flash', label: 'GLM-4 Flash (免费)' },
+    { value: 'glm-4-plus', label: 'GLM-4 Plus' },
+  ],
+  aiping: [
+    { value: '', label: '自定义模型' },
+  ],
+};
+
+/** Default model per provider */
+export const DEFAULT_MODEL: Record<LLMProvider, string> = {
+  deepseek: 'deepseek-v4-flash',
+  qwen: 'qwen-turbo',
+  chatglm: 'glm-4-flash',
+  aiping: '',
+};
+
 export type EngineType = 'dag' | 'langgraph';
 
 export interface LLMNodeData {

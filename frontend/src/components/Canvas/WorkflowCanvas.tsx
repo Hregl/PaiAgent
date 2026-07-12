@@ -17,7 +17,7 @@ import ToolNode from './nodes/ToolNode';
 import ConditionNode from './nodes/ConditionNode';
 import DecomposerNode from './nodes/DecomposerNode';
 import JudgeNode from './nodes/JudgeNode';
-import { CustomNodeData, LLMProvider } from '../../types/workflow';
+import { CustomNodeData, LLMProvider, DEFAULT_MODEL } from '../../types/workflow';
 
 const nodeTypes: NodeTypes = {
   input: InputNode,
@@ -128,9 +128,9 @@ function getDefaultNodeData(config: { type: string; subtype: string; label: stri
   switch (config.type) {
     case 'llm': {
       const defaults: Record<string, { model: string; apiBaseUrl: string }> = {
-        deepseek: { model: 'deepseek-chat', apiBaseUrl: 'https://api.deepseek.com' },
-        qwen: { model: 'qwen-turbo', apiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-        chatglm: { model: 'glm-4-flash', apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
+        deepseek: { model: DEFAULT_MODEL.deepseek, apiBaseUrl: 'https://api.deepseek.com' },
+        qwen: { model: DEFAULT_MODEL.qwen, apiBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+        chatglm: { model: DEFAULT_MODEL.chatglm, apiBaseUrl: 'https://open.bigmodel.cn/api/paas/v4' },
         aiping: { model: '', apiBaseUrl: '' },
       };
       const d = defaults[config.subtype] || { model: '', apiBaseUrl: '' };

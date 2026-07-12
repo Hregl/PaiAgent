@@ -10,11 +10,10 @@ import {
   addEdge,
   Connection,
 } from 'reactflow';
-import { CustomNodeData, LLMProvider, EngineType, Phase, DecomposerNodeData, WorkflowSnapshot } from '../types/workflow';
+import { CustomNodeData, LLMProvider, EngineType, Phase, WorkflowSnapshot, DEFAULT_MODEL } from '../types/workflow';
 
 interface GeneratePhaseNodesParams {
   phases: Phase[];
-  decomposerNodeId: string;
   llmConfigs: {
     workerProvider: LLMProvider;
     workerModel: string;
@@ -23,6 +22,11 @@ interface GeneratePhaseNodesParams {
     validatorProvider: LLMProvider;
     validatorModel: string;
   };
+  inheritedApiKey?: string;
+  inheritedApiBaseUrl?: string;
+  /** Optional: position override for generated nodes (default: center of existing nodes) */
+  baseX?: number;
+  baseY?: number;
 }
 
 interface WorkflowState {
@@ -82,7 +86,7 @@ function createDefaultNodes(): [Node<CustomNodeData>[], Edge[]] {
     data: {
       label: 'DeepSeek',
       provider: 'deepseek' as LLMProvider,
-      model: 'deepseek-chat',
+      model: DEFAULT_MODEL.deepseek,
       apiBaseUrl: 'https://api.deepseek.com',
       apiKey: '',
       prompt: `基于以下内容生成一段播客脚本，要求口语化、有吸引力：\n\n{{${inputId}.output}}`,
@@ -262,18 +266,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
   },
 
-  generatePhaseNodes: ({ phases, decomposerNodeId, llmConfigs }) => {
+  generatePhaseNodes: ({ phases, llmConfigs, inheritedApiKey, inheritedApiBaseUrl, baseX, baseY }) => {
     get().pushHistory();
     const state = get();
-    const decomposerNode = state.nodes.find((n) => n.id === decomposerNodeId);
-    const baseX = (decomposerNode?.position.x ?? 200) + 280;
-    const baseY = (decomposerNode?.position.y ?? 100);
+
+    // Position: use provided base or compute center of existing nodes
+    const avgX = state.nodes.length > 0
+      ? state.nodes.reduce((s, n) => s + n.position.x, 0) / state.nodes.length
+      : 200;
+    const avgY = state.nodes.length > 0
+      ? state.nodes.reduce((s, n) => s + n.position.y, 0) / state.nodes.length
+      : 100;
+    const startX = baseX ?? (avgX + 200);
+    const startY = baseY ?? (avgY - ((phases.length - 1) * 200) / 2);
     const verticalGap = 200;
 
-    // Inherit API credentials from the decomposer node
-    const decomposerData = decomposerNode?.data as DecomposerNodeData | undefined;
-    const inheritedApiKey = decomposerData?.apiKey || '';
-    const inheritedApiBaseUrl = decomposerData?.apiBaseUrl || '';
+    const apiKey = inheritedApiKey || '';
+    const apiUrl = inheritedApiBaseUrl || '';
 
     const newNodes: Node<CustomNodeData>[] = [];
     const newEdges: Edge[] = [];
@@ -287,7 +296,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     phases.forEach((phase, i) => {
       const workerId = `worker_${++nodeCounter}`;
       const judgeId = `judge_${++nodeCounter}`;
-      const y = baseY + i * verticalGap;
+      const y = startY + i * verticalGap;
 
       // Build worker prompt with user input + chain context from previous phases
       let workerPrompt = '';
@@ -311,13 +320,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const workerNode: Node<CustomNodeData> = {
         id: workerId,
         type: 'llm',
-        position: { x: baseX, y },
+        position: { x: startX, y },
         data: {
           label: phase.name,
           provider: llmConfigs.workerProvider,
           model: llmConfigs.workerModel,
-          apiBaseUrl: inheritedApiBaseUrl,
-          apiKey: inheritedApiKey,
+          apiBaseUrl: apiUrl,
+          apiKey: apiKey,
           prompt: workerPrompt,
           temperature: 0.7,
           maxTokens: 2048,
@@ -331,13 +340,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const judgeNode: Node<CustomNodeData> = {
         id: judgeId,
         type: 'judge',
-        position: { x: baseX + 280, y },
+        position: { x: startX + 280, y },
         data: {
           label: `判断: ${phase.name}`,
           provider: llmConfigs.judgeProvider,
           model: llmConfigs.judgeModel,
-          apiKey: inheritedApiKey,
-          apiBaseUrl: inheritedApiBaseUrl,
+          apiKey: apiKey,
+          apiBaseUrl: apiUrl,
           leftRef: `${workerId}.output`,
           criteria: phase.criteria,
           temperature: 0.1,
@@ -395,13 +404,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const validatorNode: Node<CustomNodeData> = {
       id: validatorId,
       type: 'llm',
-      position: { x: baseX + 560, y: baseY + ((phases.length - 1) * verticalGap) / 2 },
+      position: { x: startX + 560, y: startY + ((phases.length - 1) * verticalGap) / 2 },
       data: {
         label: '最终验证',
         provider: llmConfigs.validatorProvider,
         model: llmConfigs.validatorModel,
-        apiBaseUrl: inheritedApiBaseUrl,
-        apiKey: inheritedApiKey,
+        apiBaseUrl: apiUrl,
+        apiKey: apiKey,
         prompt: validatorPrompt,
         temperature: 0.3,
         maxTokens: 2048,
@@ -442,13 +451,13 @@ ${cleanupInputs}
     const cleanupNode: Node<CustomNodeData> = {
       id: cleanupId,
       type: 'llm',
-      position: { x: baseX + 840, y: baseY + ((phases.length - 1) * verticalGap) / 2 },
+      position: { x: startX + 840, y: startY + ((phases.length - 1) * verticalGap) / 2 },
       data: {
         label: '内容清理',
         provider: llmConfigs.validatorProvider,
         model: llmConfigs.validatorModel,
-        apiBaseUrl: inheritedApiBaseUrl,
-        apiKey: inheritedApiKey,
+        apiBaseUrl: apiUrl,
+        apiKey: apiKey,
         prompt: cleanupPrompt,
         temperature: 0.3,
         maxTokens: 2048,
@@ -465,9 +474,9 @@ ${cleanupInputs}
       animated: true,
     });
 
-    // Remove decomposer node, keep other nodes, add generated ones
+    // Remove any decomposer nodes from canvas, keep other nodes, add generated ones
     const remainingNodes = state.nodes.filter(
-      (n) => n.id !== decomposerNodeId
+      (n) => n.type !== 'decomposer'
     );
     const remainingEdges: Edge[] = [];
 

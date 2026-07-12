@@ -1,4 +1,5 @@
 import { DragEvent } from 'react';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import { useWorkflowStore } from '../../store/workflowStore';
 
 interface NodeItemConfig {
@@ -24,15 +25,15 @@ const conditionNode: NodeItemConfig = {
   type: 'condition', subtype: 'condition', label: '判断分支', icon: '⑂', color: '#fff7e6',
 };
 
-const decomposerNode: NodeItemConfig = {
-  type: 'decomposer', subtype: 'decomposer', label: '任务分解器', icon: '🧩', color: '#f0f0ff',
-};
-
 const judgeNode: NodeItemConfig = {
   type: 'judge', subtype: 'judge', label: 'AI 判断', icon: '⚖️', color: '#fff0f6',
 };
 
-export default function Sidebar() {
+interface SidebarProps {
+  onDecomposeClick: () => void;
+}
+
+export default function Sidebar({ onDecomposeClick }: SidebarProps) {
   const engineType = useWorkflowStore((s) => s.engineType);
 
   const onDragStart = (event: DragEvent, nodeConfig: NodeItemConfig) => {
@@ -43,6 +44,42 @@ export default function Sidebar() {
   return (
     <div>
       <h3 style={{ fontSize: 16, marginBottom: 16, color: '#333' }}>节点库</h3>
+
+      {/* Smart Decomposer Button — primary action */}
+      <div className="sidebar-section" style={{ marginBottom: 16 }}>
+        <div
+          onClick={onDecomposeClick}
+          className="node-item"
+          style={{
+            background: 'linear-gradient(135deg, #f0f0ff 0%, #e8e0ff 100%)',
+            border: '1px solid #d3c5f0',
+            borderRadius: 8,
+            padding: '10px 12px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <div className="node-item-icon" style={{
+            background: 'linear-gradient(135deg, #722ed1, #5b21b6)',
+            color: '#fff',
+            width: 36,
+            height: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 6,
+            fontSize: 18,
+          }}>
+            <ThunderboltOutlined />
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: '#531dab' }}>智能任务分解</div>
+            <div style={{ fontSize: 10, color: '#8c8c8c', marginTop: 1 }}>AI 自动拆解复杂任务为多阶段流水线</div>
+          </div>
+        </div>
+      </div>
 
       <div className="sidebar-section">
         <div className="sidebar-section-title">🧠 LLM 节点</div>
@@ -94,16 +131,6 @@ export default function Sidebar() {
             {conditionNode.icon}
           </div>
           <span>{conditionNode.label}</span>
-        </div>
-        <div
-          className="node-item"
-          draggable
-          onDragStart={(e) => onDragStart(e, decomposerNode)}
-        >
-          <div className="node-item-icon" style={{ background: decomposerNode.color }}>
-            {decomposerNode.icon}
-          </div>
-          <span>{decomposerNode.label}</span>
         </div>
         <div
           className="node-item"

@@ -83,7 +83,7 @@ public class DecomposerExecutor implements NodeExecutor {
         Map<String, Object> config = new HashMap<>();
         config.put("model", model != null && !model.isEmpty() ? model : "deepseek-chat");
         config.put("temperature", 0.3);
-        config.put("maxTokens", 2048);
+        // No maxTokens cap — LLM uses its own default ceiling to avoid truncation
 
         log.info("Decomposing task with provider={} model={}, task length={}",
             provider, model, taskDescription.length());
@@ -122,18 +122,63 @@ public class DecomposerExecutor implements NodeExecutor {
 
     DecompositionResult parseResponse(String response) {
         String json = JsonExtractor.extract(response);
-        try {
-            PhaseList phaseList = objectMapper.readValue(json, PhaseList.class);
+        PhaseList phaseList = tryParsePhases(json);
+        if (phaseList != null) {
             if (phaseList.phases == null || phaseList.phases.isEmpty()) {
                 return DecompositionResult.error("AI returned empty phase list. Try rephrasing the task.");
             }
             log.info("Decomposed into {} phases: {}", phaseList.phases.size(),
                 phaseList.phases.stream().map(p -> p.name).toList());
             return DecompositionResult.success(phaseList.phases);
-        } catch (Exception e) {
-            log.warn("Failed to parse decompose response: {}", e.getMessage());
-            return DecompositionResult.error("Failed to parse AI response: " + e.getMessage());
         }
+        log.warn("Failed to parse decompose response after recovery attempts, raw: {}",
+            response.length() > 200 ? response.substring(0, 200) + "..." : response);
+        return DecompositionResult.error("AI 返回格式异常，请重试（可能是任务描述过长导致输出截断）");
+    }
+
+    /**
+     * Try to parse phases from JSON with recovery for truncated LLM output.
+     * Returns null if all attempts fail.
+     */
+    private PhaseList tryParsePhases(String json) {
+        // Attempt 1: exact match
+        try {
+            return objectMapper.readValue(json, PhaseList.class);
+        } catch (Exception ignored) {}
+
+        // Attempt 2: close unclosed array/object (most common truncation)
+        String[] suffixes = {
+            "\"}]}",      // close last string + object + array + root
+            "}]}",        // close last object + array + root (if value wasn't a string)
+            "]}"          // close array + root
+        };
+        for (String suffix : suffixes) {
+            try {
+                return objectMapper.readValue(json + suffix, PhaseList.class);
+            } catch (Exception ignored) {}
+        }
+
+        // Attempt 3: truncate back to last complete phase (find last "},")
+        int lastComplete = json.lastIndexOf("\"},");
+        if (lastComplete > 0) {
+            String truncated = json.substring(0, lastComplete + 3) + "\n]}" ;
+            try {
+                return objectMapper.readValue(truncated, PhaseList.class);
+            } catch (Exception ignored) {}
+        }
+
+        // Attempt 4: try with just the first phase (find first complete one)
+        int firstEnd = json.indexOf("\"},");
+        if (firstEnd > 0) {
+            String firstOnly = json.substring(0, firstEnd + 3) + "\n]}" ;
+            try {
+                PhaseList result = objectMapper.readValue(firstOnly, PhaseList.class);
+                log.warn("Recovered only first phase from truncated response");
+                return result;
+            } catch (Exception ignored) {}
+        }
+
+        return null;
     }
 
     /**

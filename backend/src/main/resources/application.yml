@@ -29,7 +29,7 @@ jwt:
 llm:
   deepseek:
     api-key: ${DEEPSEEK_API_KEY:}
-    base-url: https://api.deepseek.com/v1
+    base-url: https://api.deepseek.com
   qwen:
     api-key: ${QWEN_API_KEY:}
     base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
