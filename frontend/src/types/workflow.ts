@@ -141,6 +141,12 @@ export interface ExecutionResult {
   error?: string;
 }
 
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 export interface NodeLog {
   nodeId: string;
   nodeType: string;
@@ -151,6 +157,7 @@ export interface NodeLog {
   error?: string;
   phaseIndex?: number;
   totalPhases?: number;
+  tokenUsage?: TokenUsage;
 }
 
 export interface ProgressEntry {
@@ -162,6 +169,11 @@ export interface ProgressEntry {
   durationMs?: number;
   phaseIndex?: number;
   totalPhases?: number;
+  branch?: string;
+  confidence?: number;
+  reasoning?: string;
+  tokenUsage?: TokenUsage;
+  warning?: string;
 }
 
 export interface ExecutionHistoryItem {

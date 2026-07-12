@@ -210,6 +210,10 @@ public class DagWorkflowEngine implements WorkflowEngine {
                 success.put("status", "SUCCESS");
                 success.put("message", "Completed in " + (System.currentTimeMillis() - nodeStart) + "ms");
                 success.put("durationMs", System.currentTimeMillis() - nodeStart);
+                // Attach token usage from LLM node outputs
+                if (output.containsKey("_tokenUsage")) {
+                    success.put("tokenUsage", output.get("_tokenUsage"));
+                }
                 progressCallback.accept(success);
             }
 

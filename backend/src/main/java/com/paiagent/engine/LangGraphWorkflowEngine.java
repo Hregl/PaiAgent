@@ -166,11 +166,30 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
                         success.put("nodeId", nodeId);
                         success.put("nodeType", type);
                         success.put("label", label);
-                        success.put("status", "SUCCESS");
                         success.put("message", phasePrefix + "Completed in " + duration + "ms");
                         success.put("durationMs", duration);
                         if (phaseIndex != null) success.put("phaseIndex", phaseIndex);
                         if (totalPhases != null) success.put("totalPhases", totalPhases);
+
+                        // Attach output metadata for frontend display (branch, confidence, token usage)
+                        if (output.containsKey("branch")) {
+                            success.put("branch", output.get("branch"));
+                        }
+                        if (output.containsKey("confidence")) {
+                            success.put("confidence", output.get("confidence"));
+                        }
+                        if (output.containsKey("reasoning")) {
+                            success.put("reasoning", output.get("reasoning"));
+                        }
+                        if (output.containsKey("_tokenUsage")) {
+                            success.put("tokenUsage", output.get("_tokenUsage"));
+                        }
+
+                        // human_review: judge models disagree — keep SUCCESS but signal frontend
+                        if ("human_review".equals(output.get("branch"))) {
+                            success.put("warning", "AI 评审出现分歧，请人工裁决");
+                        }
+
                         progressCallback.accept(success);
                     }
 
@@ -258,12 +277,16 @@ public class LangGraphWorkflowEngine implements WorkflowEngine {
             for (Map.Entry<String, Map<String, String>> entry : conditionPathMaps.entrySet()) {
                 String condNodeId = entry.getKey();
                 Map<String, String> pathMap = entry.getValue();
-                // Ensure both "true" and "false" have fallback targets
+                // Ensure all branches have fallback targets
                 if (!pathMap.containsKey("true")) {
                     pathMap.put("true", StateGraph.END);
                 }
                 if (!pathMap.containsKey("false")) {
                     pathMap.put("false", StateGraph.END);
+                }
+                // human_review: judge models disagree — default to "true" path (pass through)
+                if (!pathMap.containsKey("human_review")) {
+                    pathMap.put("human_review", pathMap.get("true"));
                 }
                 log.info("Condition node {} pathMap: {}", condNodeId, pathMap);
 

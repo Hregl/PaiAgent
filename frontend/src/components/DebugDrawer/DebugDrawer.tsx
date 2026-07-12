@@ -165,13 +165,28 @@ export default function DebugDrawer() {
                 </span>
               ),
               description: (
-                <span style={{ color: p.status === 'RUNNING' ? '#1890ff' : p.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
-                  {p.status === 'RUNNING' && <LoadingOutlined style={{ marginRight: 4 }} />}
-                  {p.status === 'SUCCESS' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
-                  {p.status === 'FAILED' && <CloseCircleOutlined style={{ marginRight: 4 }} />}
-                  {p.message}
-                  {p.durationMs != null && p.status !== 'RUNNING' && (
-                    <span style={{ color: '#999', marginLeft: 4 }}>({p.durationMs}ms)</span>
+                <span>
+                  <span style={{ color: p.status === 'RUNNING' ? '#1890ff' : p.status === 'SUCCESS' ? '#52c41a' : '#ff4d4f' }}>
+                    {p.status === 'RUNNING' && <LoadingOutlined style={{ marginRight: 4 }} />}
+                    {p.status === 'SUCCESS' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
+                    {p.status === 'FAILED' && <CloseCircleOutlined style={{ marginRight: 4 }} />}
+                    {p.message}
+                    {p.durationMs != null && p.status !== 'RUNNING' && (
+                      <span style={{ color: '#999', marginLeft: 4 }}>({p.durationMs}ms)</span>
+                    )}
+                  </span>
+                  {p.status === 'SUCCESS' && p.confidence != null && (
+                    <Tag color={p.confidence >= 0.7 ? 'green' : p.confidence >= 0.5 ? 'orange' : 'red'} style={{ marginLeft: 6, fontSize: 11 }}>
+                      置信度 {(p.confidence * 100).toFixed(0)}%
+                    </Tag>
+                  )}
+                  {p.status === 'SUCCESS' && p.tokenUsage && p.tokenUsage.totalTokens > 0 && (
+                    <span style={{ color: '#999', fontSize: 11, marginLeft: 6 }}>
+                      🎯 {p.tokenUsage.totalTokens} tokens
+                    </span>
+                  )}
+                  {p.warning && (
+                    <Tag color="warning" style={{ marginLeft: 6 }}>⚠️ {p.warning}</Tag>
                   )}
                 </span>
               ),
@@ -294,10 +309,23 @@ export default function DebugDrawer() {
                         {log.status === 'SUCCESS' ? '成功' : '失败'}
                       </Tag>
                       <span style={{ color: '#999', fontSize: 12 }}>{log.durationMs}ms</span>
+                      {log.tokenUsage && log.tokenUsage.totalTokens > 0 && (
+                        <Tag color="geekblue" style={{ fontSize: 10 }}>
+                          🎯 {log.tokenUsage.totalTokens} tok
+                        </Tag>
+                      )}
                     </span>
                   ),
                   children: (
                     <div>
+                      {log.tokenUsage && log.tokenUsage.totalTokens > 0 && (
+                        <div style={{ marginBottom: 8, padding: 6, background: '#f0f5ff', borderRadius: 4 }}>
+                          <strong style={{ color: '#2f54eb', fontSize: 12 }}>Token 用量:</strong>
+                          <span style={{ fontSize: 12, marginLeft: 8 }}>
+                            输入 {log.tokenUsage.promptTokens} + 输出 {log.tokenUsage.completionTokens} = {log.tokenUsage.totalTokens}
+                          </span>
+                        </div>
+                      )}
                       <div style={{ marginBottom: 8 }}>
                         <strong style={{ color: '#1890ff' }}>输入:</strong>
                         <pre style={{
@@ -482,10 +510,23 @@ export default function DebugDrawer() {
                                     <Tag color={log.status === 'SUCCESS' ? 'success' : 'error'} style={{ fontSize: 10 }}>
                                       {log.status === 'SUCCESS' ? '成功' : '失败'}
                                     </Tag>
+                                    {log.tokenUsage && log.tokenUsage.totalTokens > 0 && (
+                                      <span style={{ fontSize: 10, color: '#999' }}>
+                                        🎯 {log.tokenUsage.totalTokens}
+                                      </span>
+                                    )}
                                   </span>
                                 ),
                                 children: (
                                   <div style={{ fontSize: 11 }}>
+                                    {log.tokenUsage && log.tokenUsage.totalTokens > 0 && (
+                                      <div style={{ marginBottom: 4, padding: 4, background: '#f0f5ff', borderRadius: 3, fontSize: 10 }}>
+                                        <strong style={{ color: '#2f54eb' }}>Token:</strong>
+                                        <span style={{ marginLeft: 4 }}>
+                                          {log.tokenUsage.promptTokens} in + {log.tokenUsage.completionTokens} out = {log.tokenUsage.totalTokens}
+                                        </span>
+                                      </div>
+                                    )}
                                     <div style={{ marginBottom: 4 }}>
                                       <strong style={{ color: '#1890ff' }}>输入:</strong>
                                       <pre style={{
