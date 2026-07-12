@@ -2,6 +2,7 @@ package com.paiagent.adapter;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
+import reactor.core.publisher.Flux;
 
 /**
  * Unified LLM service powered by Spring AI.
@@ -61,34 +63,22 @@ public class SpringAiChatService {
 
     /**
      * Send a chat message to the specified LLM provider.
-     * Supports per-node API key and base URL overrides.
      *
-     * @param provider     the LLM provider (deepseek, qwen, chatglm, aiping)
-     * @param prompt       the user prompt
-     * @param config       configuration including model, temperature, maxTokens
-     * @param nodeApiKey   optional per-node API key override
-     * @param nodeBaseUrl  optional per-node base URL override
-     * @return the LLM response text
+     * @return the LLM response text (for backward compatibility)
      */
     public String chat(String provider, String prompt, Map<String, Object> config,
                        String nodeApiKey, String nodeBaseUrl) {
-        ChatClient client;
-        final String effectiveBaseUrl;
+        return chatWithUsage(provider, prompt, config, nodeApiKey, nodeBaseUrl).content();
+    }
 
-        if (nodeApiKey != null && !nodeApiKey.isBlank()) {
-            // Use node-level credentials — create a one-off ChatClient
-            String baseUrl = (nodeBaseUrl != null && !nodeBaseUrl.isBlank())
-                    ? stripTrailingSlash(nodeBaseUrl)
-                    : getDefaultBaseUrl(provider);
-            OpenAiApi openAiApi = new OpenAiApi(baseUrl, nodeApiKey);
-            OpenAiChatModel chatModel = new OpenAiChatModel(openAiApi);
-            client = ChatClient.builder(chatModel).build();
-            effectiveBaseUrl = baseUrl;
-        } else {
-            // Fall back to globally configured provider
-            client = clients.get(provider);
-            effectiveBaseUrl = "global";
-        }
+    /**
+     * Send a chat message and return both content and token usage.
+     */
+    public ChatResult chatWithUsage(String provider, String prompt, Map<String, Object> config,
+                                     String nodeApiKey, String nodeBaseUrl) {
+        var clientAndUrl = resolveClient(provider, nodeApiKey, nodeBaseUrl);
+        ChatClient client = clientAndUrl.client;
+        String effectiveBaseUrl = clientAndUrl.baseUrl;
 
         if (client == null) {
             throw new IllegalArgumentException("LLM provider not configured or unknown: " + provider);
@@ -106,12 +96,68 @@ public class SpringAiChatService {
                 .build());
 
         try {
-            return client.prompt(chatPrompt).call().content();
+            ChatResponse response = client.prompt(chatPrompt).call().chatResponse();
+            String content = response.getResult().getOutput().getText();
+            var usage = response.getMetadata().getUsage();
+            Long pTokens = usage != null ? usage.getPromptTokens() : null;
+            Long cTokens = usage != null ? usage.getGenerationTokens() : null;
+            Long tTokens = usage != null ? usage.getTotalTokens() : null;
+            int promptTokens = pTokens != null ? pTokens.intValue() : 0;
+            int completionTokens = cTokens != null ? cTokens.intValue() : 0;
+            int totalTokens = tTokens != null ? tTokens.intValue() : 0;
+            return new ChatResult(content, promptTokens, completionTokens, totalTokens);
         } catch (RuntimeException e) {
             throw new RuntimeException(
                 "LLM call failed [provider=" + provider + ", model=" + model
                 + ", baseUrl=" + effectiveBaseUrl + "]: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Stream a chat response as a reactive Flux. Each emission is a text chunk.
+     * Useful for real-time display of LLM output in the frontend.
+     */
+    public Flux<String> chatStream(String provider, String prompt, Map<String, Object> config,
+                                    String nodeApiKey, String nodeBaseUrl) {
+        var clientAndUrl = resolveClient(provider, nodeApiKey, nodeBaseUrl);
+        ChatClient client = clientAndUrl.client;
+
+        if (client == null) {
+            return Flux.error(new IllegalArgumentException(
+                "LLM provider not configured or unknown: " + provider));
+        }
+
+        String model = (String) config.getOrDefault("model", "");
+        double temperature = ((Number) config.getOrDefault("temperature", 0.7)).doubleValue();
+        int maxTokens = ((Number) config.getOrDefault("maxTokens", 2048)).intValue();
+
+        UserMessage userMessage = new UserMessage(prompt);
+        Prompt chatPrompt = new Prompt(userMessage, OpenAiChatOptions.builder()
+                .model(model)
+                .temperature(temperature)
+                .maxTokens(maxTokens)
+                .build());
+
+        return client.prompt(chatPrompt).stream().content();
+    }
+
+    /**
+     * Check if a provider is configured and available.
+     */
+    public boolean hasProvider(String provider) {
+        return clients.containsKey(provider);
+    }
+
+    private ClientAndUrl resolveClient(String provider, String nodeApiKey, String nodeBaseUrl) {
+        if (nodeApiKey != null && !nodeApiKey.isBlank()) {
+            String baseUrl = (nodeBaseUrl != null && !nodeBaseUrl.isBlank())
+                    ? stripTrailingSlash(nodeBaseUrl)
+                    : getDefaultBaseUrl(provider);
+            OpenAiApi openAiApi = new OpenAiApi(baseUrl, nodeApiKey);
+            OpenAiChatModel chatModel = new OpenAiChatModel(openAiApi);
+            return new ClientAndUrl(ChatClient.builder(chatModel).build(), baseUrl);
+        }
+        return new ClientAndUrl(clients.get(provider), "global");
     }
 
     private String stripTrailingSlash(String url) {
@@ -127,10 +173,10 @@ public class SpringAiChatService {
         };
     }
 
+    private record ClientAndUrl(ChatClient client, String baseUrl) {}
+
     /**
-     * Check if a provider is configured and available.
+     * Result of a chat call including token usage for cost tracking.
      */
-    public boolean hasProvider(String provider) {
-        return clients.containsKey(provider);
-    }
+    public record ChatResult(String content, int promptTokens, int completionTokens, int totalTokens) {}
 }

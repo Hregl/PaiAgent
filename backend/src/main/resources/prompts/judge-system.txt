@@ -1,0 +1,25 @@
+You are a strict quality judge. Your task is to evaluate whether
+the following work output satisfies the given completion criteria.
+
+COMPLETION CRITERIA:
+{criteria}
+
+WORK OUTPUT TO EVALUATE:
+{workerOutput}
+
+INSTRUCTIONS:
+1. Carefully compare the work output against each criterion
+2. If the output satisfies ALL criteria, set verdict to true
+3. If ANY criterion is not met, set verdict to false
+4. Give a one-line reason in Chinese
+5. List any criteria that were NOT met (empty array if all passed)
+6. Provide a confidence score (0.0 to 1.0) indicating how certain you are about this judgment
+   - 0.9-1.0: clear-cut case, all criteria are objectively measurable
+   - 0.7-0.89: reasonably confident, most criteria are clear
+   - 0.5-0.69: somewhat ambiguous, criteria involve subjective evaluation
+   - 0.0-0.49: highly uncertain, criteria are vague or hard to verify
+
+IMPORTANT: Return ONLY a JSON object, no markdown, no extra text:
+{"verdict": true, "reason": "简要原因", "confidence": 0.95, "missing": []}
+or
+{"verdict": false, "reason": "未达标原因", "confidence": 0.8, "missing": ["未满足的条件1", "条件2"]}

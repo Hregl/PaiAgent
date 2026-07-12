@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.paiagent.adapter.SpringAiChatService;
 import com.paiagent.engine.ExecutionContext;
 import com.paiagent.engine.NodeExecutor;
+import com.paiagent.util.JsonExtractor;
+import com.paiagent.util.PromptLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -12,8 +14,6 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Calls an LLM to decompose a task description into sequential phases.
@@ -27,16 +27,17 @@ public class DecomposerExecutor implements NodeExecutor {
     private static final Logger log = LoggerFactory.getLogger(DecomposerExecutor.class);
     private final SpringAiChatService chatService;
     private final ObjectMapper objectMapper;
+    private final PromptLoader promptLoader;
 
-    public DecomposerExecutor(SpringAiChatService chatService, ObjectMapper objectMapper) {
+    public DecomposerExecutor(SpringAiChatService chatService, ObjectMapper objectMapper,
+                              PromptLoader promptLoader) {
         this.chatService = chatService;
         this.objectMapper = objectMapper;
+        this.promptLoader = promptLoader;
     }
 
     /**
      * Execute decomposer node during workflow runtime.
-     * Reads taskDescription from nodeData, calls LLM to decompose,
-     * and stores phases + summary in context for downstream nodes.
      */
     @Override
     public Map<String, Object> execute(Map<String, Object> nodeData, ExecutionContext context) throws Exception {
@@ -75,13 +76,6 @@ public class DecomposerExecutor implements NodeExecutor {
 
     /**
      * Decompose a task into phases using the specified LLM.
-     *
-     * @param taskDescription description of the overall task
-     * @param provider        LLM provider (deepseek, qwen, etc.)
-     * @param model           model name
-     * @param apiKey          per-node API key (null to use global config)
-     * @param apiBaseUrl      per-node API base URL (null to use global config)
-     * @return DecompositionResult containing list of phases or error
      */
     public DecompositionResult decompose(String taskDescription, String provider, String model,
                                           String apiKey, String apiBaseUrl) {
@@ -91,12 +85,12 @@ public class DecomposerExecutor implements NodeExecutor {
         config.put("temperature", 0.3);
         config.put("maxTokens", 2048);
 
-        log.info("Decomposing task with provider={} model={}, task length={}, nodeKey={}",
-            provider, model, taskDescription.length(), apiKey != null ? "***" : "none");
+        log.info("Decomposing task with provider={} model={}, task length={}",
+            provider, model, taskDescription.length());
         try {
-            String response = chatService.chat(provider, prompt, config, apiKey, apiBaseUrl);
-            log.info("Decompose response length={}", response.length());
-            return parseResponse(response);
+            var result = chatService.chatWithUsage(provider, prompt, config, apiKey, apiBaseUrl);
+            log.info("Decompose response length={}, tokens={}", result.content().length(), result.totalTokens());
+            return parseResponse(result.content());
         } catch (IllegalArgumentException e) {
             String envVar = getApiKeyEnvName(provider);
             String msg = "LLM provider '" + provider + "' 未配置。"
@@ -120,57 +114,14 @@ public class DecomposerExecutor implements NodeExecutor {
     }
 
     private String buildDecomposePrompt(String taskDescription) {
-        return """
-            You are a task decomposition expert. Your job is to break down a complex task into
-            phases that can be executed and verified independently.
-
-            For each phase, provide:
-            1. A short descriptive name
-            2. A detailed description of what the worker AI should do
-            3. Clear completion criteria that a judge AI can use to verify the phase is done
-
-            IMPORTANT: Return ONLY valid JSON in the following format, no other text:
-            {
-              "phases": [
-                {
-                  "name": "Phase short name",
-                  "description": "Detailed instructions for the worker AI to execute this phase...",
-                  "criteria": "Specific criteria the judge AI should check to confirm completion..."
-                }
-              ]
-            }
-
-            CRITICAL DECOMPOSITION RULES:
-            1. Break work by CONTENT STRUCTURE, not by process stage
-               - For writing tasks: one phase per content section/part/chapter (e.g. "第一部分：背景分析撰写" not just "初稿撰写")
-               - For research tasks: one phase per subtopic or dimension
-               - For coding tasks: one phase per module or feature
-               - Avoid generic names like "撰写"/"初稿"/"润色" — include WHAT to write about
-
-            2. Front-load preparation, back-load quality control
-               - First phase(s): preparation (research, outlining, data collection)
-               - Middle phases: the actual content work, broken by topic/section
-               - Last phase(s): polish, review, formatting
-
-            3. Granularity guidelines
-               - A "writing" phase should cover ONE specific topic/section, not all content
-               - If the task has natural subsections (chapters, parts, features), each gets its own phase
-               - More specific, smaller phases > fewer vague, large phases
-               - You may create up to 10 phases if the task warrants it
-
-            4. Each phase execution instruction must include WHAT to produce, not just HOW
-
-            5. Each criteria must be specific and measurable (word count, structure, completeness, accuracy)
-
-            Use the same language as the task description.
-
-            Task to decompose:
-            """ + taskDescription;
+        return promptLoader.render("decompose-system", Map.of(
+            "examples", "",
+            "taskDescription", taskDescription
+        )) + taskDescription;
     }
 
     DecompositionResult parseResponse(String response) {
-        // Try to extract JSON from the response (may be wrapped in markdown code blocks)
-        String json = extractJson(response);
+        String json = JsonExtractor.extract(response);
         try {
             PhaseList phaseList = objectMapper.readValue(json, PhaseList.class);
             if (phaseList.phases == null || phaseList.phases.isEmpty()) {
@@ -183,22 +134,6 @@ public class DecomposerExecutor implements NodeExecutor {
             log.warn("Failed to parse decompose response: {}", e.getMessage());
             return DecompositionResult.error("Failed to parse AI response: " + e.getMessage());
         }
-    }
-
-    private String extractJson(String response) {
-        // Strip markdown code blocks if present
-        Pattern pattern = Pattern.compile("```(?:json)?\\s*(\\{.*?\\})\\s*```", Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(response);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        // Find the outermost JSON object
-        int start = response.indexOf('{');
-        int end = response.lastIndexOf('}');
-        if (start != -1 && end != -1 && end > start) {
-            return response.substring(start, end + 1);
-        }
-        return response;
     }
 
     /**

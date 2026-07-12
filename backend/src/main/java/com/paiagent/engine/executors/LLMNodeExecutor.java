@@ -29,19 +29,23 @@ public class LLMNodeExecutor implements NodeExecutor {
         Integer maxTokens = nodeData.get("maxTokens") != null ?
                 ((Number) nodeData.get("maxTokens")).intValue() : 2048;
 
-        // Resolve template variables in prompt
         String resolvedPrompt = context.resolveTemplate(promptTemplate);
 
-        // Call LLM via Spring AI
         Map<String, Object> config = new HashMap<>();
         config.put("model", model);
         config.put("temperature", temperature);
         config.put("maxTokens", maxTokens);
 
-        String response = chatService.chat(provider, resolvedPrompt, config, apiKey, apiBaseUrl);
+        SpringAiChatService.ChatResult result = chatService.chatWithUsage(
+            provider, resolvedPrompt, config, apiKey, apiBaseUrl);
 
         Map<String, Object> output = new HashMap<>();
-        output.put("output", response);
+        output.put("output", result.content());
+        output.put("_tokenUsage", Map.of(
+            "promptTokens", result.promptTokens(),
+            "completionTokens", result.completionTokens(),
+            "totalTokens", result.totalTokens()
+        ));
         return output;
     }
 }

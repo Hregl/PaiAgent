@@ -36,7 +36,7 @@ class DagWorkflowEngineTest {
         NodeExecutorFactory factory = new NodeExecutorFactory(
             llmExecutor, ttsExecutor, conditionExecutor, decomposerExecutor, judgeExecutor);
         objectMapper = new ObjectMapper();
-        engine = new DagWorkflowEngine(factory, objectMapper);
+        engine = new DagWorkflowEngine(factory, objectMapper, 4);
     }
 
     @Test
